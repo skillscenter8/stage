@@ -52,7 +52,6 @@ export default function Login() {
               <img src={logo} alt="Algérie Télécom" className="h-24 w-auto object-contain" />
             </div>
           </div>
-          <h1 className="text-xl font-bold tracking-tight">{t("Algérie Télécom")}</h1>
           <p className="text-xs text-emerald-600 mt-2 font-medium">{t("Sign in to manage training formations and registers")}</p>
         </div>
 

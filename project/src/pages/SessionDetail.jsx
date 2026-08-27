@@ -204,7 +204,7 @@ export default function SessionDetail() {
     try {
       const { error } = await supabase
         .from('formations')
-        .update({ is_active: false })
+        .delete()
         .eq('id', id);
 
       if (error) {
