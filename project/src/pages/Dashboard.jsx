@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../config/supabaseClient';
-import logo from '../logo/logo.svg';
 import Navbar from './Navbar';
+import skillscenter from '../logo/skillscenter.jpg';
+import logo from '../logo/logo.svg';
+import * as XLSX from 'xlsx';
 import { 
   Plus, 
   Search, 
@@ -19,7 +21,9 @@ import {
   AlertTriangle,
   Clock,
   CheckCircle2,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Upload,
+  Download
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -52,6 +56,8 @@ export default function Dashboard() {
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
 
+  const [uploadingExcel, setUploadingExcel] = useState(false);
+
   useEffect(() => {
     fetchFormations();
   }, []);
@@ -81,6 +87,17 @@ export default function Dashboard() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const formatTimeDisplay = (timeStr) => {
+    if (!timeStr) return '';
+    const match = String(timeStr).match(/(\d{1,2}):(\d{2})/);
+    if (match) {
+      const hours = match[1].padStart(2, '0');
+      const minutes = match[2];
+      return `${hours}:${minutes}`;
+    }
+    return String(timeStr);
   };
 
   const isWorkshopEnded = (dateStr, timeStr) => {
@@ -116,7 +133,7 @@ export default function Dashboard() {
       let seconds = 59;
 
       if (timeStr) {
-        const timeMatch = timeStr.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+        const timeMatch = String(timeStr).match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
         if (timeMatch) {
           hours = parseInt(timeMatch[1], 10);
           minutes = parseInt(timeMatch[2], 10);
@@ -147,7 +164,8 @@ export default function Dashboard() {
     setDeleteError('');
 
     try {
-      // PERMANENT HARD DELETE FROM SUPABASE
+      await supabase.from('presences').delete().eq('formation_id', deleteTarget.id);
+
       const { error } = await supabase
         .from('formations')
         .delete()
@@ -223,6 +241,150 @@ export default function Dashboard() {
     }
   };
 
+  const parseExcelDate = (val) => {
+    if (val === undefined || val === null || val === '') return null;
+    
+    if (val instanceof Date) {
+      return isNaN(val.getTime()) ? null : val.toISOString().split('T')[0];
+    }
+    
+    if (typeof val === 'number') {
+      const date = new Date(Math.round((val - 25569) * 86400 * 1000));
+      return isNaN(date.getTime()) ? null : date.toISOString().split('T')[0];
+    }
+    
+    const str = String(val).trim();
+    if (!str) return null;
+    
+    const parsed = new Date(str);
+    if (!isNaN(parsed.getTime())) {
+      const year = parsed.getFullYear();
+      const month = String(parsed.getMonth() + 1).padStart(2, '0');
+      const day = String(parsed.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+    
+    return str;
+  };
+
+  const parseExcelTime = (val) => {
+    if (val === undefined || val === null || val === '') return null;
+    
+    if (val instanceof Date) {
+      if (isNaN(val.getTime())) return null;
+      const hours = String(val.getHours()).padStart(2, '0');
+      const minutes = String(val.getMinutes()).padStart(2, '0');
+      return `${hours}:${minutes}`;
+    }
+    
+    if (typeof val === 'number') {
+      const totalSeconds = Math.round(val * 86400);
+      const hours = Math.floor(totalSeconds / 3600);
+      const minutes = Math.floor((totalSeconds % 3600) / 60);
+      return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+    }
+    
+    const str = String(val).trim();
+    const timeMatch = str.match(/(\d{1,2}):(\d{2})/);
+    if (timeMatch) {
+      return `${timeMatch[1].padStart(2, '0')}:${timeMatch[2]}`;
+    }
+    return str;
+  };
+
+  const handleExcelImport = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingExcel(true);
+
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const workbook = XLSX.read(arrayBuffer, { type: 'array', cellDates: true });
+      const firstSheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[firstSheetName];
+      const rawData = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
+
+      if (rawData.length === 0) {
+        alert(t('The uploaded Excel file is empty.'));
+        setUploadingExcel(false);
+        return;
+      }
+
+      const { data: { user } } = await supabase.auth.getUser();
+
+      const formattedRows = rawData
+        .filter((row) => {
+          const rawTitle = row['Title'] || row['title'] || row['Titre'] || row['titre'];
+          return Boolean(rawTitle && String(rawTitle).trim());
+        })
+        .map((row) => {
+          const rawTitle = row['Title'] || row['title'] || row['Titre'] || row['titre'];
+          const rawDate = row['Date'] || row['date'];
+          const rawTime = row['Time'] || row['time'] || row['Heure'] || row['heure'];
+          const rawTrainer = row['Trainer'] || row['trainer'] || row['Trainer Name'] || row['Formateur'] || row['formateur'];
+          const rawLocation = row['Location'] || row['location'] || row['Lieu'] || row['lieu'];
+          const rawDesc = row['Description'] || row['description'];
+
+          return {
+            title: String(rawTitle).trim(),
+            date: parseExcelDate(rawDate),
+            time: parseExcelTime(rawTime),
+            trainer_name: rawTrainer ? String(rawTrainer).trim() : '',
+            location: rawLocation ? String(rawLocation).trim() : '',
+            description: rawDesc ? String(rawDesc).trim() : '',
+            trainer_id: user?.id || null,
+          };
+        });
+
+      if (formattedRows.length === 0) {
+        alert(t('No valid rows with titles found in the uploaded file.'));
+        setUploadingExcel(false);
+        return;
+      }
+
+      const { error } = await supabase.from('formations').insert(formattedRows);
+
+      if (error) throw error;
+
+      alert(`${t('Successfully imported')} ${formattedRows.length} ${t('workshops!')}`);
+      fetchFormations();
+    } catch (err) {
+      console.error('Error uploading Excel file:', err);
+      alert(t('Error importing file: ') + err.message);
+    } finally {
+      setUploadingExcel(false);
+      e.target.value = '';
+    }
+  };
+
+  const exportWorkshopsExcel = () => {
+    if (filteredFormations.length === 0) return;
+
+    const dataToExport = filteredFormations.map((item, index) => ({
+      '#': index + 1,
+      'Title': item.title || '',
+      'Trainer': item.trainer_name || 'Unassigned',
+      'Date': item.date || '',
+      'Time': formatTimeDisplay(item.time) || '',
+      'Location': item.location || '',
+      'Participants': item.presences?.length || 0,
+      'Status': isWorkshopEnded(item.date, item.time) ? 'Ended' : 'Upcoming',
+      'Description': item.description || '',
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Workshops');
+
+    const max_width = dataToExport.reduce((w, r) => {
+      return Object.keys(r).map((k, i) => Math.max(w[i] || 10, String(r[k]).length, k.length));
+    }, []);
+    worksheet['!cols'] = max_width.map(w => ({ wch: w + 2 }));
+
+    XLSX.writeFile(workbook, `Workshops_Export_${new Date().toISOString().slice(0, 10)}.xlsx`);
+  };
+
   const formatDateDisplay = (dateString) => {
     if (!dateString) return t('Date TBD');
     const parsed = new Date(dateString);
@@ -284,49 +446,28 @@ export default function Dashboard() {
       <Navbar />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-6">
-        <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-xs flex flex-col lg:flex-row items-center justify-between gap-6">
-          <div className="flex flex-col sm:flex-row items-center gap-5 text-center sm:text-left rtl:sm:text-right">
+        {/* Fixed Header Banner Component */}
+        <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-xs flex flex-col lg:flex-row items-start justify-between gap-6">
+          {/* Left Side: Logo + Info */}
+          <div className="flex items-start gap-4 sm:gap-5 max-w-2xl">
             <img 
-              src={logo} 
-              alt="Logo Algérie Télécom" 
-              className="h-16 sm:h-20 w-auto object-contain shrink-0"
+              src={skillscenter} 
+              alt="Logo Skills Center" 
+              className="sm:h-20 sm:w-20 rounded-4xl object-cover shrink-0 border border-slate-100 shadow-xs"
             />
-            <div className="space-y-1">
-              <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight text-slate-900">
+            <div className="space-y-1.5">
+              <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-slate-900 leading-tight">
                 {t("Formation & Workshop Management")}
               </h1>
-              <p className="text-slate-500 text-xs sm:text-sm leading-relaxed max-w-xl">
+              <p className="text-slate-500 text-xs sm:text-sm leading-relaxed">
                 {t("Manage all official corporate training sessions, monitor student sign-in registers, and export session data.")}
               </p>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-center sm:justify-end gap-2.5 shrink-0 w-full sm:w-auto border-t sm:border-t-0 pt-4 sm:pt-0 border-slate-100">
-            <div className="inline-flex items-center gap-1.5 bg-slate-100 border border-slate-200 px-3 py-2 rounded-xl text-xs font-semibold text-slate-700">
-              <Globe size={14} className="text-slate-500" />
-              <span>{t("Total")}: <strong className="text-slate-900">{totalCount}</strong></span>
-            </div>
-
-            <div className="inline-flex items-center gap-1.5 bg-emerald-50 border border-emerald-200/80 px-3 py-2 rounded-xl text-xs font-semibold text-emerald-800">
-              <Clock size={14} className="text-emerald-600" />
-              <span>{t("Upcoming")}: <strong className="text-emerald-950 font-bold">{upcomingCount}</strong></span>
-            </div>
-
-            <div className="inline-flex items-center gap-1.5 bg-slate-100 border border-slate-200 px-3 py-2 rounded-xl text-xs font-semibold text-slate-600">
-              <CheckCircle2 size={14} className="text-slate-500" />
-              <span>{t("Ended")}: <strong className="text-slate-800">{endedCount}</strong></span>
-            </div>
-            <a
-              href="https://docs.google.com/spreadsheets/d/1tgTz4Z9GHGPs_E8MyzmcENCb82wItINFNupCeUn86iY/edit?gid=1526140983#gid=1526140983"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center justify-center gap-2 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold px-4 py-2 rounded-xl text-xs transition-all shadow-xs hover:shadow-md cursor-pointer no-underline ml-1"
-              title="Google Sheets"
-            >
-              <FileSpreadsheet size={16} />
-              <span>Google Sheets</span>
-            </a>
-
+          {/* Right Side: Structured Actions & Badges */}
+          <div className="flex flex-col items-start sm:items-end justify-between gap-4 w-full lg:w-auto shrink-0 pt-4 lg:pt-0 border-t lg:border-t-0 border-slate-100">
+            {/* Primary Action Button */}
             <button
               onClick={() => {
                 setModalError('');
@@ -338,17 +479,73 @@ export default function Dashboard() {
                 setDescription('');
                 setShowCreateModal(true);
               }}
-              className="inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold px-4 py-2 rounded-xl text-xs transition-all shadow-xs hover:shadow-md cursor-pointer ml-1"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold px-4 py-2.5 rounded-xl text-xs transition-all shadow-xs hover:shadow-md cursor-pointer"
             >
               <Plus size={16} />
               <span>{t("Add New Formation")}</span>
             </button>
+
+            {/* Badges & Secondary Data Actions */}
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-start sm:justify-end">
+              <div className="inline-flex items-center gap-1.5 bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700">
+                <Globe size={13} className="text-slate-500" />
+                <span>{t("Total")}: <strong className="text-slate-900">{totalCount}</strong></span>
+              </div>
+
+              <div className="inline-flex items-center gap-1.5 bg-emerald-50 border border-emerald-200/80 px-3 py-1.5 rounded-xl text-xs font-semibold text-emerald-800">
+                <Clock size={13} className="text-emerald-600" />
+                <span>{t("Upcoming")}: <strong className="text-emerald-950 font-bold">{upcomingCount}</strong></span>
+              </div>
+
+              <div className="inline-flex items-center gap-1.5 bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-600">
+                <CheckCircle2 size={13} className="text-slate-500" />
+                <span>{t("Ended")}: <strong className="text-slate-800">{endedCount}</strong></span>
+              </div>
+
+              <div className="h-4 w-px bg-slate-200 mx-1 hidden sm:block" />
+
+              <button
+                onClick={exportWorkshopsExcel}
+                disabled={filteredFormations.length === 0}
+                className="inline-flex items-center justify-center gap-1.5 bg-slate-800 hover:bg-slate-900 disabled:opacity-50 text-white font-semibold px-3 py-1.5 rounded-xl text-xs transition-all shadow-xs hover:shadow-md cursor-pointer"
+                title={t("Export Excel")}
+              >
+                <Download size={14} />
+                <span>{t("Export Excel")}</span>
+              </button>
+
+              <a
+                href="https://docs.google.com/spreadsheets/d/1tgTz4Z9GHGPs_E8MyzmcENCb82wItINFNupCeUn86iY/edit?gid=1526140983#gid=1526140983"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold px-3 py-1.5 rounded-xl text-xs transition-all shadow-xs hover:shadow-md cursor-pointer no-underline"
+                title="Google Sheets"
+              >
+                <FileSpreadsheet size={14} />
+                <span>Google Sheets</span>
+              </a>
+
+              <label
+                className={`inline-flex items-center justify-center gap-1.5 bg-emerald-800 hover:bg-emerald-900 text-white font-semibold px-3 py-1.5 rounded-xl text-xs transition-all shadow-xs hover:shadow-md cursor-pointer ${
+                  uploadingExcel ? 'opacity-60 pointer-events-none' : ''
+                }`}
+              >
+                <Upload size={14} />
+                <span>{uploadingExcel ? t("Importing...") : t("Import Excel")}</span>
+                <input
+                  type="file"
+                  accept=".xlsx, .xls, .csv"
+                  onChange={handleExcelImport}
+                  className="hidden"
+                  disabled={uploadingExcel}
+                />
+              </label>
+            </div>
           </div>
         </div>
 
         <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
           <div className="flex flex-col md:flex-row items-center gap-3">
-            
             <div className="relative flex-1 w-full">
               <Search size={18} className="absolute left-3.5 rtl:left-auto rtl:right-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
@@ -433,7 +630,6 @@ export default function Dashboard() {
             <span className="text-xs font-semibold text-slate-700 bg-slate-100 px-3.5 py-2 rounded-xl border border-slate-200 whitespace-nowrap hidden lg:inline-block shrink-0">
               {filteredFormations.length} {filteredFormations.length === 1 ? t('Workshop Available') : t('Workshops Available')}
             </span>
-
           </div>
         </div>
 
@@ -498,7 +694,7 @@ export default function Dashboard() {
                         )}
 
                         <h2 className="text-base font-bold text-slate-900 capitalize leading-snug line-clamp-2">
-                          {item.title}
+                          {item.title || t('Untitled Workshop')}
                         </h2>
                       </div>
 
@@ -534,7 +730,7 @@ export default function Dashboard() {
                           <Calendar size={14} className="text-emerald-600 shrink-0" />
                           <span className="font-medium text-slate-700 text-[11px] truncate">
                             {formatDateDisplay(item.date)}
-                            {item.time ? ` ${t('at')} ${item.time}` : ''}
+                            {item.time ? ` ${t('at')} ${formatTimeDisplay(item.time)}` : ''}
                           </span>
                         </div>
 

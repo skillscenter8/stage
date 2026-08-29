@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../config/supabaseClient';
 import logo from '../logo/logo.svg';
+import skillscenter from '../logo/skillscenter.jpg';
 import LanguageSelector from './LanguageSelector';
 import { Mail, Lock, ArrowRight, Loader2, AlertCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -49,7 +50,7 @@ export default function Login() {
         <div className="p-8 text-black text-center relative">
           <div className="flex justify-center mb-4">
             <div className="p-2">
-              <img src={logo} alt="Algérie Télécom" className="h-24 w-auto object-contain" />
+              <img src={skillscenter} alt="Skills Center" className="h-30 rounded-4xl w-auto object-contain" />
             </div>
           </div>
           <p className="text-xs text-emerald-600 mt-2 font-medium">{t("Sign in to manage training formations and registers")}</p>

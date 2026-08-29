@@ -30,7 +30,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/attend/:id" element={<Attend />} />
+        <Route path="/attend/:name" element={<Attend />} />
         <Route path="/login" element={session ? <Navigate to="/dashboard" replace /> : <Login />} />
         <Route 
           path="/dashboard" 

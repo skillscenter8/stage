@@ -3,6 +3,7 @@ import { supabase } from '../config/supabaseClient';
 import { LogOut, Globe, ChevronDown } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import logo from '../logo/logo.svg';
+import skillscenter from '../logo/skillscenter.jpg';
 
 export default function Navbar() {
   const { t, i18n } = useTranslation();
@@ -41,7 +42,7 @@ export default function Navbar() {
             <img 
                           src={logo} 
                           alt="Logo Algérie Télécom" 
-                          className="size-10 w-auto object-contain shrink-0"
+                          className="size-10 w-auto rounded-2xl w-13 h-13 object-contain shrink-0"
                         />
           </div>
           <div className="flex items-center gap-3">

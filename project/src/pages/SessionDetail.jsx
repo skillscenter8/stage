@@ -3,8 +3,10 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 import { supabase } from '../config/supabaseClient';
 import logo from '../logo/logo.svg';
+import skillscenter from '../logo/skillscenter.jpg';
 import { 
   ArrowLeft, 
   Calendar, 
@@ -23,7 +25,8 @@ import {
   AlertTriangle,
   Clock,
   CheckCircle2,
-  Info
+  Info,
+  FileSpreadsheet
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -82,6 +85,17 @@ export default function SessionDetail() {
     setLoading(false);
   };
 
+  const formatTimeDisplay = (timeStr) => {
+    if (!timeStr) return '';
+    const match = String(timeStr).match(/(\d{1,2}):(\d{2})/);
+    if (match) {
+      const hours = match[1].padStart(2, '0');
+      const minutes = match[2];
+      return `${hours}:${minutes}`;
+    }
+    return String(timeStr);
+  };
+
   const formatSessionDate = (dateStr, timeStr) => {
     if (!dateStr) return t('Date TBD');
 
@@ -118,7 +132,8 @@ export default function SessionDetail() {
       });
     }
 
-    return timeStr ? `${formattedDate} ${t('at')} ${timeStr}` : formattedDate;
+    const cleanTime = formatTimeDisplay(timeStr);
+    return cleanTime ? `${formattedDate} ${t('at')} ${cleanTime}` : formattedDate;
   };
 
   const formatSessionDateFrench = (dateStr, timeStr) => {
@@ -148,7 +163,8 @@ export default function SessionDetail() {
       year: 'numeric',
     });
 
-    return timeStr ? `${formattedDate} à ${timeStr}` : formattedDate;
+    const cleanTime = formatTimeDisplay(timeStr);
+    return cleanTime ? `${formattedDate} à ${cleanTime}` : formattedDate;
   };
 
   const isWorkshopEnded = (dateStr, timeStr) => {
@@ -175,7 +191,7 @@ export default function SessionDetail() {
       let hours = 23, minutes = 59, seconds = 59;
 
       if (timeStr) {
-        const timeMatch = timeStr.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+        const timeMatch = String(timeStr).match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
         if (timeMatch) {
           hours = parseInt(timeMatch[1], 10);
           minutes = parseInt(timeMatch[2], 10);
@@ -202,6 +218,8 @@ export default function SessionDetail() {
     setDeleteError('');
 
     try {
+      await supabase.from('presences').delete().eq('formation_id', id);
+
       const { error } = await supabase
         .from('formations')
         .delete()
@@ -222,7 +240,7 @@ export default function SessionDetail() {
   const getLogoBase64 = () => {
     return new Promise((resolve) => {
       const img = new Image();
-      img.src = logo;
+      img.src = skillscenter;
       img.crossOrigin = 'Anonymous';
       img.onload = () => {
         const canvas = document.createElement('canvas');
@@ -273,6 +291,31 @@ export default function SessionDetail() {
     };
 
     image.src = blobURL;
+  };
+
+  const exportExcel = () => {
+    if (attendees.length === 0) return;
+
+    const dataToExport = attendees.map((student, index) => ({
+      '#': index + 1,
+      'Nom Complet': student.full_name || 'N/A',
+      'Adresse e-mail': student.email || 'N/A',
+      'Téléphone': student.phone || 'N/A',
+      'Statut / Rôle': student.status || 'Participant',
+      'Raison / Observation': student.reason || 'N/A',
+      'Date d\'émargement': student.created_at ? new Date(student.created_at).toLocaleString() : 'N/A'
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Participants');
+
+    const max_width = dataToExport.reduce((w, r) => {
+      return Object.keys(r).map((k, i) => Math.max(w[i] || 10, String(r[k]).length, k.length));
+    }, []);
+    worksheet['!cols'] = max_width.map(w => ({ wch: w + 2 }));
+
+    XLSX.writeFile(workbook, `${workshop?.title || 'atelier'}_Registre_Presence.xlsx`);
   };
 
   const exportPDF = async () => {
@@ -450,7 +493,7 @@ export default function SessionDetail() {
           </div>
 
           <div className="mb-2">
-            <img src={logo} alt="Logo" className="h-24 sm:h-28 w-auto object-contain" />
+            <img src={skillscenter} alt="Logo" className="h-24 sm:h-28 w-auto object-contain" />
           </div>
 
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 capitalize tracking-tight max-w-2xl">
@@ -498,7 +541,7 @@ export default function SessionDetail() {
 
             <button
               onClick={() => setShowQRModal(true)}
-              className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-4 py-2 rounded-xl text-xs transition-all shadow-sm cursor-pointer"
+              className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-4 py-2 rounded-xl text-xs transition-all shadow-xs cursor-pointer"
               title={t("Show QR")}
             >
               <QrCode size={14} />
@@ -515,8 +558,18 @@ export default function SessionDetail() {
             </button>
 
             <button
+              onClick={exportExcel}
+              disabled={attendees.length === 0}
+              className="inline-flex items-center gap-2 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white font-bold px-4 py-2 rounded-xl text-xs transition-all shadow-xs cursor-pointer"
+              title={t("Export Excel")}
+            >
+              <FileSpreadsheet size={14} />
+              <span>{t("Export Excel")}</span>
+            </button>
+
+            <button
               onClick={exportPDF}
-              className="inline-flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white font-bold px-4 py-2 rounded-xl text-xs transition-all shadow-sm cursor-pointer"
+              className="inline-flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white font-bold px-4 py-2 rounded-xl text-xs transition-all shadow-xs cursor-pointer"
               title={t("Export PDF")}
             >
               <FileText size={14} />

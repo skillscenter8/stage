@@ -30,7 +30,7 @@ const ALGERIAN_ARABIC_MONTHS = [
 
 export default function Attend() {
   const { t, i18n } = useTranslation();
-  const { id } = useParams();
+  const { title } = useParams();
   const [workshop, setWorkshop] = useState(null);
   const [loadingWorkshop, setLoadingWorkshop] = useState(true);
 
@@ -45,10 +45,10 @@ export default function Attend() {
   const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
-    if (id) {
+    if (title) {
       fetchWorkshopDetails();
     }
-  }, [id]);
+  }, [title]);
 
   useEffect(() => {
     if (workshop?.title) {
@@ -60,13 +60,17 @@ export default function Attend() {
 
   const fetchWorkshopDetails = async () => {
     setLoadingWorkshop(true);
-    const { data } = await supabase
+    const decodedTitle = title ? decodeURIComponent(title) : '';
+
+    const { data, error } = await supabase
       .from('formations')
       .select('*')
-      .eq('id', id)
+      .eq('title', decodedTitle)
       .single();
 
-    if (data) {
+    if (error) {
+      console.error('Error fetching workshop details:', error);
+    } else if (data) {
       setWorkshop(data);
     }
     setLoadingWorkshop(false);
@@ -146,13 +150,18 @@ export default function Attend() {
       return;
     }
 
+    if (!workshop?.id) {
+      setErrorMsg(t("Workshop session invalid or not loaded."));
+      return;
+    }
+
     setSubmitting(true);
     setErrorMsg('');
 
-    // 1. Insert into Supabase
+    // 1. Insert into Supabase using workshop.id from fetched record
     const { error } = await supabase.from('presences').insert([
       {
-        formation_id: id,
+        formation_id: workshop.id,
         full_name: fullName.trim(),
         email: email.trim(),
         phone: phone.trim(),
@@ -169,7 +178,7 @@ export default function Attend() {
         try {
           await fetch(GOOGLE_SHEETS_SCRIPT_URL, {
             method: 'POST',
-            mode: 'no-cors', // Avoids CORS errors on Google Apps Script
+            mode: 'no-cors',
             headers: {
               'Content-Type': 'application/json',
             },
@@ -209,7 +218,6 @@ export default function Attend() {
           <p className="text-xs text-slate-600 leading-relaxed">
             {t("Your registration for")} <strong className="text-slate-900">{workshop?.title || t('the workshop')}</strong> {t("has been submitted successfully.")}
           </p>
-    
         </div>
       </div>
     );
