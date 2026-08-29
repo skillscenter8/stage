@@ -237,22 +237,42 @@ export default function SessionDetail() {
     }
   };
 
-  const getLogoBase64 = () => {
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.src = skillscenter;
-      img.crossOrigin = 'Anonymous';
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width || 120;
-        canvas.height = img.height || 40;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0);
-        resolve(canvas.toDataURL('image/png'));
-      };
-      img.onerror = () => resolve(null);
-    });
-  };
+  const getLogoBase64 = (cornerRadius = 10) => {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.src = logo;
+    img.crossOrigin = 'Anonymous';
+    img.onload = () => {
+      const width = img.width || 60;
+      const height = img.height || 40;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = width;
+      canvas.height = height;
+
+      const ctx = canvas.getContext('2d');
+
+      // Create rounded corner clipping path
+      ctx.beginPath();
+      if (typeof ctx.roundRect === 'function') {
+        ctx.roundRect(0, 0, width, height, cornerRadius);
+      } else {
+        // Fallback for legacy environments
+        ctx.moveTo(cornerRadius, 0);
+        ctx.arcTo(width, 0, width, height, cornerRadius);
+        ctx.arcTo(width, height, 0, height, cornerRadius);
+        ctx.arcTo(0, height, 0, 0, cornerRadius);
+        ctx.arcTo(0, 0, width, 0, cornerRadius);
+        ctx.closePath();
+      }
+      ctx.clip();
+
+      ctx.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL('image/png'));
+    };
+    img.onerror = () => resolve(null);
+  });
+};
 
   const copyDirectLink = () => {
     navigator.clipboard.writeText(studentFormUrl);
