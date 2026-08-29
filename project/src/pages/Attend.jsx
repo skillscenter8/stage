@@ -60,16 +60,20 @@ export default function Attend() {
 
   const fetchWorkshopDetails = async () => {
     setLoadingWorkshop(true);
-    const decodedTitle = title ? decodeURIComponent(title) : '';
+    const param = title ? decodeURIComponent(title) : '';
+
+    // Check whether URL param is a numeric ID (e.g. /attend/23) or title text (e.g. /attend/React%20101)
+    const isNumericId = /^\d+$/.test(param);
 
     const { data, error } = await supabase
       .from('formations')
       .select('*')
-      .eq('title', decodedTitle)
+      .eq(isNumericId ? 'id' : 'title', isNumericId ? parseInt(param, 10) : param)
       .single();
 
     if (error) {
       console.error('Error fetching workshop details:', error);
+      setWorkshop(null);
     } else if (data) {
       setWorkshop(data);
     }
@@ -79,21 +83,48 @@ export default function Attend() {
   const checkIsEnded = () => {
     if (!workshop) return false;
 
+    // 1. Explicit DB Status Check
     const statusStr = String(workshop.status || '').toLowerCase().trim();
     if (['ended', 'terminé', 'termine', 'closed', 'completed', 'finished', 'منتهية', 'منتهي'].includes(statusStr)) {
       return true;
     }
 
+    // 2. Automatic Expiration Check (Start time + 2 hour duration window)
     if (workshop.date) {
       try {
-        const rawDate = typeof workshop.date === 'string' ? workshop.date.slice(0, 10) : '';
-        if (rawDate) {
-          const timeStr = workshop.time ? workshop.time : '23:59:59';
-          const sessionDateTime = new Date(`${rawDate}T${timeStr}`);
-          if (!isNaN(sessionDateTime.getTime()) && sessionDateTime < new Date()) {
-            return true;
+        let year, month, day;
+        const dateStr = String(workshop.date);
+
+        if (dateStr.includes('-')) {
+          const parts = dateStr.slice(0, 10).split('-');
+          if (parts[0].length === 4) {
+            [year, month, day] = parts.map(Number);
+          } else {
+            [day, month, year] = parts.map(Number);
+          }
+        } else {
+          const parsedDate = new Date(dateStr);
+          if (isNaN(parsedDate.getTime())) return false;
+          year = parsedDate.getFullYear();
+          month = parsedDate.getMonth() + 1;
+          day = parsedDate.getDate();
+        }
+
+        let hours = 23, minutes = 59, seconds = 59;
+        if (workshop.time) {
+          const timeMatch = String(workshop.time).match(/(\d{1,2}):(\d{2})/);
+          if (timeMatch) {
+            hours = parseInt(timeMatch[1], 10);
+            minutes = parseInt(timeMatch[2], 10);
+            seconds = 0;
           }
         }
+
+        const workshopStart = new Date(year, month - 1, day, hours, minutes, seconds);
+        if (isNaN(workshopStart.getTime())) return false;
+
+        const workshopEndTime = new Date(workshopStart.getTime() + (2 * 60 * 60 * 1000));
+        return workshopEndTime < new Date();
       } catch (err) {
         console.error('Erreur d\'évaluation de la date:', err);
       }
@@ -158,7 +189,7 @@ export default function Attend() {
     setSubmitting(true);
     setErrorMsg('');
 
-    // 1. Insert into Supabase using workshop.id from fetched record
+    // 1. Insert into Supabase
     const { error } = await supabase.from('presences').insert([
       {
         formation_id: workshop.id,
@@ -223,6 +254,7 @@ export default function Attend() {
     );
   }
 
+  // Display dedicated "Workshop Ended" message screen when ended
   if (!loadingWorkshop && isEnded) {
     return (
       <div className="min-h-screen bg-slate-50 font-sans text-slate-800 pb-12 flex flex-col justify-center items-center p-4 relative">
@@ -230,7 +262,7 @@ export default function Attend() {
           <LanguageSelector />
         </div>
 
-        <div className="max-w-md w-full bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-200/80 p-8 text-center space-y-4">
+        <div className="max-w-md w-full bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-200/80 p-8 text-center space-y-5">
           <div className="flex justify-center mb-1">
             <img 
               src={logo} 
@@ -250,15 +282,15 @@ export default function Attend() {
             )}
           </div>
 
-          <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto pt-0.5">
+          <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto border border-amber-200 shadow-xs">
             <Clock size={32} />
           </div>
 
-          <div className="space-y-1.5">
-            <h1 className="text-xl font-extrabold text-slate-900">
+          <div className="space-y-2 bg-amber-50/60 p-4 rounded-2xl border border-amber-200/60">
+            <h1 className="text-lg font-extrabold text-amber-900">
               {t("This workshop has ended")}
             </h1>
-            <p className="text-xs text-slate-600 leading-relaxed">
+            <p className="text-xs text-amber-800 leading-relaxed">
               {t("Sign-ins are now closed for this session. Thank you for your interest!")}
             </p>
           </div>
