@@ -57,6 +57,8 @@ export default function Dashboard() {
   const [deleteError, setDeleteError] = useState('');
 
   const [uploadingExcel, setUploadingExcel] = useState(false);
+  const [importSuccessCount, setImportSuccessCount] = useState(null);
+  const [importErrorMsg, setImportErrorMsg] = useState(null);
 
   useEffect(() => {
     fetchFormations();
@@ -188,6 +190,18 @@ export default function Dashboard() {
     e.preventDefault();
     setModalError('');
 
+    if (
+      !title.trim() || 
+      !description.trim() || 
+      !trainerName.trim() || 
+      !date || 
+      !time || 
+      !location.trim()
+    ) {
+      setModalError(t('Please fill in all required fields before submitting.'));
+      return;
+    }
+
     if (date) {
       const selectedYear = new Date(date).getFullYear();
       if (isNaN(selectedYear) || selectedYear < 2024 || selectedYear > 2035) {
@@ -243,53 +257,103 @@ export default function Dashboard() {
 
   const parseExcelDate = (val) => {
     if (val === undefined || val === null || val === '') return null;
-    
+
     if (val instanceof Date) {
-      return isNaN(val.getTime()) ? null : val.toISOString().split('T')[0];
-    }
-    
-    if (typeof val === 'number') {
-      const date = new Date(Math.round((val - 25569) * 86400 * 1000));
-      return isNaN(date.getTime()) ? null : date.toISOString().split('T')[0];
-    }
-    
-    const str = String(val).trim();
-    if (!str) return null;
-    
-    const parsed = new Date(str);
-    if (!isNaN(parsed.getTime())) {
-      const year = parsed.getFullYear();
-      const month = String(parsed.getMonth() + 1).padStart(2, '0');
-      const day = String(parsed.getDate()).padStart(2, '0');
+      if (isNaN(val.getTime())) return null;
+      const shifted = new Date(val.getTime() + 12 * 60 * 60 * 1000);
+      const year = shifted.getUTCFullYear();
+      const month = String(shifted.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(shifted.getUTCDate()).padStart(2, '0');
       return `${year}-${month}-${day}`;
     }
-    
+
+    if (typeof val === 'number') {
+      const utcMs = Math.round((val - 25569) * 86400 * 1000) + (12 * 60 * 60 * 1000);
+      const date = new Date(utcMs);
+      if (isNaN(date.getTime())) return null;
+      const year = date.getUTCFullYear();
+      const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+      const day = String(date.getUTCDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+
+    const str = String(val).trim();
+    if (!str) return null;
+
+    const isoMatch = str.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+    if (isoMatch) {
+      const [, y, m, d] = isoMatch;
+      return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+    }
+
+    const euMatch = str.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);
+    if (euMatch) {
+      const [, d, m, y] = euMatch;
+      return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+    }
+
     return str;
   };
 
   const parseExcelTime = (val) => {
     if (val === undefined || val === null || val === '') return null;
-    
+
     if (val instanceof Date) {
       if (isNaN(val.getTime())) return null;
-      const hours = String(val.getHours()).padStart(2, '0');
-      const minutes = String(val.getMinutes()).padStart(2, '0');
+      const isTimeOnly = val.getUTCFullYear() <= 1900;
+      const hours = String(isTimeOnly ? val.getUTCHours() : val.getHours()).padStart(2, '0');
+      const minutes = String(isTimeOnly ? val.getUTCMinutes() : val.getMinutes()).padStart(2, '0');
       return `${hours}:${minutes}`;
     }
-    
+
     if (typeof val === 'number') {
-      const totalSeconds = Math.round(val * 86400);
+      let timeFraction = val >= 1 ? val % 1 : val;
+      const totalSeconds = Math.round(timeFraction * 86400);
       const hours = Math.floor(totalSeconds / 3600);
       const minutes = Math.floor((totalSeconds % 3600) / 60);
       return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
     }
-    
+
     const str = String(val).trim();
-    const timeMatch = str.match(/(\d{1,2}):(\d{2})/);
-    if (timeMatch) {
-      return `${timeMatch[1].padStart(2, '0')}:${timeMatch[2]}`;
+    if (!str) return null;
+
+    const colonMatch = str.match(/(\d{1,2}):(\d{2})/);
+    if (colonMatch) {
+      return `${colonMatch[1].padStart(2, '0')}:${colonMatch[2]}`;
     }
+
+    const hMatch = str.match(/(\d{1,2})[hH](\d{2})?/);
+    if (hMatch) {
+      const hours = hMatch[1].padStart(2, '0');
+      const minutes = hMatch[2] ? hMatch[2] : '00';
+      return `${hours}:${minutes}`;
+    }
+
+    const dotMatch = str.match(/^(\d{1,2})\.(\d{2})$/);
+    if (dotMatch) {
+      return `${dotMatch[1].padStart(2, '0')}:${dotMatch[2]}`;
+    }
+
     return str;
+  };
+
+  const getFieldValue = (row, keywords) => {
+    const keys = Object.keys(row);
+    for (const key of keys) {
+      const cleanKey = key.trim().toLowerCase();
+      if (keywords.some((kw) => cleanKey === kw.toLowerCase())) {
+        const val = row[key];
+        if (val !== undefined && val !== null && String(val).trim() !== '') return val;
+      }
+    }
+    for (const key of keys) {
+      const cleanKey = key.trim().toLowerCase();
+      if (keywords.some((kw) => cleanKey.includes(kw.toLowerCase()))) {
+        const val = row[key];
+        if (val !== undefined && val !== null && String(val).trim() !== '') return val;
+      }
+    }
+    return undefined;
   };
 
   const handleExcelImport = async (e) => {
@@ -297,6 +361,7 @@ export default function Dashboard() {
     if (!file) return;
 
     setUploadingExcel(true);
+    setImportErrorMsg(null);
 
     try {
       const arrayBuffer = await file.arrayBuffer();
@@ -306,25 +371,32 @@ export default function Dashboard() {
       const rawData = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
 
       if (rawData.length === 0) {
-        alert(t('The uploaded Excel file is empty.'));
+        setImportErrorMsg(t('The uploaded Excel file is empty.'));
         setUploadingExcel(false);
         return;
       }
 
       const { data: { user } } = await supabase.auth.getUser();
 
+      const titleKeywords = ['title', 'titre', 'nom', 'atelier', 'formation', 'subject', 'sujet', 'name'];
+      const dateKeywords = ['date', 'jour', 'date_session', 'session_date'];
+      const timeKeywords = ['time', 'heure', 'horaire', 'horaires', 'start_time', 'time_start', 'debut', 'début'];
+      const trainerKeywords = ['trainer', 'formateur', 'instructor', 'animateur', 'teacher', 'enseignant'];
+      const locationKeywords = ['location', 'lieu', 'salle', 'room', 'place', 'adresse'];
+      const descKeywords = ['description', 'desc', 'détails', 'details', 'summary', 'about'];
+
       const formattedRows = rawData
         .filter((row) => {
-          const rawTitle = row['Title'] || row['title'] || row['Titre'] || row['titre'];
+          const rawTitle = getFieldValue(row, titleKeywords);
           return Boolean(rawTitle && String(rawTitle).trim());
         })
         .map((row) => {
-          const rawTitle = row['Title'] || row['title'] || row['Titre'] || row['titre'];
-          const rawDate = row['Date'] || row['date'];
-          const rawTime = row['Time'] || row['time'] || row['Heure'] || row['heure'];
-          const rawTrainer = row['Trainer'] || row['trainer'] || row['Trainer Name'] || row['Formateur'] || row['formateur'];
-          const rawLocation = row['Location'] || row['location'] || row['Lieu'] || row['lieu'];
-          const rawDesc = row['Description'] || row['description'];
+          const rawTitle = getFieldValue(row, titleKeywords);
+          const rawDate = getFieldValue(row, dateKeywords);
+          const rawTime = getFieldValue(row, timeKeywords);
+          const rawTrainer = getFieldValue(row, trainerKeywords);
+          const rawLocation = getFieldValue(row, locationKeywords);
+          const rawDesc = getFieldValue(row, descKeywords);
 
           return {
             title: String(rawTitle).trim(),
@@ -338,7 +410,7 @@ export default function Dashboard() {
         });
 
       if (formattedRows.length === 0) {
-        alert(t('No valid rows with titles found in the uploaded file.'));
+        setImportErrorMsg(t('No valid rows with titles found in the uploaded file.'));
         setUploadingExcel(false);
         return;
       }
@@ -347,11 +419,11 @@ export default function Dashboard() {
 
       if (error) throw error;
 
-      alert(`${t('Successfully imported')} ${formattedRows.length} ${t('workshops!')}`);
+      setImportSuccessCount(formattedRows.length);
       fetchFormations();
     } catch (err) {
       console.error('Error uploading Excel file:', err);
-      alert(t('Error importing file: ') + err.message);
+      setImportErrorMsg(t('Error importing file: ') + err.message);
     } finally {
       setUploadingExcel(false);
       e.target.value = '';
@@ -419,9 +491,8 @@ export default function Dashboard() {
       <Navbar />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-6">
-        {/* Fixed Header Banner Component */}
+        {/* Header Banner Component */}
         <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-xs flex flex-col lg:flex-row items-start justify-between gap-6">
-          {/* Left Side: Logo + Info */}
           <div className="flex items-start gap-4 sm:gap-5 max-w-2xl">
             <img 
               src={skillscenter} 
@@ -438,9 +509,7 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* Right Side: Structured Actions & Badges */}
           <div className="flex flex-col items-start sm:items-end justify-between gap-4 w-full lg:w-auto shrink-0 pt-4 lg:pt-0 border-t lg:border-t-0 border-slate-100">
-            {/* Primary Action Button */}
             <button
               onClick={() => {
                 setModalError('');
@@ -458,7 +527,6 @@ export default function Dashboard() {
               <span>{t("Add New Formation")}</span>
             </button>
 
-            {/* Badges & Secondary Data Actions */}
             <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-start sm:justify-end">
               <div className="inline-flex items-center gap-1.5 bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700">
                 <Globe size={13} className="text-slate-500" />
@@ -476,8 +544,6 @@ export default function Dashboard() {
               </div>
 
               <div className="h-4 w-px bg-slate-200 mx-1 hidden sm:block" />
-
-              
 
               <a
                 href="https://docs.google.com/spreadsheets/d/1tgTz4Z9GHGPs_E8MyzmcENCb82wItINFNupCeUn86iY/edit?gid=1526140983#gid=1526140983"
@@ -693,18 +759,24 @@ export default function Dashboard() {
                       <div className="grid grid-cols-2 gap-2 pt-1">
                         <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-100">
                           <Calendar size={14} className="text-emerald-600 shrink-0" />
-                          <span className="font-medium text-slate-700 text-[11px] truncate">
+                          <span className="font-medium text-slate-700 text-[11px] truncate" title={formatDateDisplay(item.date)}>
                             {formatDateDisplay(item.date)}
-                            {item.time ? ` ${t('at')} ${formatTimeDisplay(item.time)}` : ''}
                           </span>
                         </div>
 
                         <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-100">
-                          <MapPin size={14} className="text-emerald-600 shrink-0" />
-                          <span className="font-medium text-slate-700 text-[11px] truncate">
-                            {item.location || t('Location TBD')}
+                          <Clock size={14} className="text-emerald-600 shrink-0" />
+                          <span className="font-medium text-slate-700 text-[11px] truncate" title={item.time ? formatTimeDisplay(item.time) : t('Time TBD')}>
+                            {item.time ? formatTimeDisplay(item.time) : t('Time TBD')}
                           </span>
                         </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-100">
+                        <MapPin size={14} className="text-emerald-600 shrink-0" />
+                        <span className="font-medium text-slate-700 text-[11px] truncate" title={item.location || t('Location TBD')}>
+                          {item.location || t('Location TBD')}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -776,9 +848,10 @@ export default function Dashboard() {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  {t("Description")}
+                  {t("Description *")}
                 </label>
                 <textarea
+                  required
                   rows={3}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
@@ -789,10 +862,11 @@ export default function Dashboard() {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  {t("Trainer Name")}
+                  {t("Trainer Name *")}
                 </label>
                 <input
                   type="text"
+                  required
                   value={trainerName}
                   onChange={(e) => setTrainerName(e.target.value)}
                   placeholder="......................"
@@ -803,10 +877,11 @@ export default function Dashboard() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                    {t("Session Date")}
+                    {t("Session Date *")}
                   </label>
                   <input
                     type="date"
+                    required
                     min="2024-01-01"
                     max="2035-12-31"
                     value={date}
@@ -817,10 +892,11 @@ export default function Dashboard() {
 
                 <div>
                   <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                    {t("Session Time")}
+                    {t("Session Time *")}
                   </label>
                   <input
                     type="time"
+                    required
                     min="07:00"
                     max="19:00"
                     value={time}
@@ -832,10 +908,11 @@ export default function Dashboard() {
 
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
-                  {t("Location / Room")}
+                  {t("Location / Room *")}
                 </label>
                 <input
                   type="text"
+                  required
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
                   placeholder="......................"
@@ -902,6 +979,58 @@ export default function Dashboard() {
                 {deleting ? t("Deleting...") : t("Yes, Delete")}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {importSuccessCount !== null && (
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl p-6 border border-slate-200 text-center space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto border border-emerald-200">
+              <CheckCircle2 size={26} />
+            </div>
+
+            <div className="space-y-1">
+              <h3 className="text-base font-bold text-slate-900">{t("Import Successful")}</h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                {t("Successfully imported")}{" "}
+                <strong className="text-emerald-700 font-bold">{importSuccessCount}</strong>{" "}
+                {importSuccessCount === 1 ? t("workshop") : t("workshops")}!
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setImportSuccessCount(null)}
+              className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-900/20 cursor-pointer"
+            >
+              {t("OK")}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {importErrorMsg !== null && (
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl p-6 border border-slate-200 text-center space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto border border-rose-200">
+              <AlertCircle size={26} />
+            </div>
+
+            <div className="space-y-1">
+              <h3 className="text-base font-bold text-slate-900">{t("Import Error")}</h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                {importErrorMsg}
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setImportErrorMsg(null)}
+              className="w-full py-2.5 px-4 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
+            >
+              {t("OK")}
+            </button>
           </div>
         </div>
       )}

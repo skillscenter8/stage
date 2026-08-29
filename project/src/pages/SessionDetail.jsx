@@ -292,32 +292,6 @@ export default function SessionDetail() {
 
     image.src = blobURL;
   };
-
-  const exportExcel = () => {
-    if (attendees.length === 0) return;
-
-    const dataToExport = attendees.map((student, index) => ({
-      '#': index + 1,
-      'Nom Complet': student.full_name || 'N/A',
-      'Adresse e-mail': student.email || 'N/A',
-      'Téléphone': student.phone || 'N/A',
-      'Statut / Rôle': student.status || 'Participant',
-      'Raison / Observation': student.reason || 'N/A',
-      'Date d\'émargement': student.created_at ? new Date(student.created_at).toLocaleString() : 'N/A'
-    }));
-
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Participants');
-
-    const max_width = dataToExport.reduce((w, r) => {
-      return Object.keys(r).map((k, i) => Math.max(w[i] || 10, String(r[k]).length, k.length));
-    }, []);
-    worksheet['!cols'] = max_width.map(w => ({ wch: w + 2 }));
-
-    XLSX.writeFile(workbook, `${workshop?.title || 'atelier'}_Registre_Presence.xlsx`);
-  };
-
   const exportPDF = async () => {
     const doc = new jsPDF();
     let startY = 15;
@@ -493,7 +467,7 @@ export default function SessionDetail() {
           </div>
 
           <div className="mb-2">
-            <img src={skillscenter} alt="Logo" className="h-24 sm:h-28 w-auto object-contain" />
+            <img src={skillscenter} alt="Logo" className="h-24 sm:h-28 rounded-4xl w-auto object-contain" />
           </div>
 
           <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 capitalize tracking-tight max-w-2xl">
@@ -555,16 +529,6 @@ export default function SessionDetail() {
             >
               <Download size={14} />
               <span>{t("Save QR")}</span>
-            </button>
-
-            <button
-              onClick={exportExcel}
-              disabled={attendees.length === 0}
-              className="inline-flex items-center gap-2 bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white font-bold px-4 py-2 rounded-xl text-xs transition-all shadow-xs cursor-pointer"
-              title={t("Export Excel")}
-            >
-              <FileSpreadsheet size={14} />
-              <span>{t("Export Excel")}</span>
             </button>
 
             <button
