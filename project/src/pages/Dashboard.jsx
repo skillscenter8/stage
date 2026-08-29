@@ -358,33 +358,6 @@ export default function Dashboard() {
     }
   };
 
-  const exportWorkshopsExcel = () => {
-    if (filteredFormations.length === 0) return;
-
-    const dataToExport = filteredFormations.map((item, index) => ({
-      '#': index + 1,
-      'Title': item.title || '',
-      'Trainer': item.trainer_name || 'Unassigned',
-      'Date': item.date || '',
-      'Time': formatTimeDisplay(item.time) || '',
-      'Location': item.location || '',
-      'Participants': item.presences?.length || 0,
-      'Status': isWorkshopEnded(item.date, item.time) ? 'Ended' : 'Upcoming',
-      'Description': item.description || '',
-    }));
-
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Workshops');
-
-    const max_width = dataToExport.reduce((w, r) => {
-      return Object.keys(r).map((k, i) => Math.max(w[i] || 10, String(r[k]).length, k.length));
-    }, []);
-    worksheet['!cols'] = max_width.map(w => ({ wch: w + 2 }));
-
-    XLSX.writeFile(workbook, `Workshops_Export_${new Date().toISOString().slice(0, 10)}.xlsx`);
-  };
-
   const formatDateDisplay = (dateString) => {
     if (!dateString) return t('Date TBD');
     const parsed = new Date(dateString);
@@ -504,15 +477,7 @@ export default function Dashboard() {
 
               <div className="h-4 w-px bg-slate-200 mx-1 hidden sm:block" />
 
-              <button
-                onClick={exportWorkshopsExcel}
-                disabled={filteredFormations.length === 0}
-                className="inline-flex items-center justify-center gap-1.5 bg-slate-800 hover:bg-slate-900 disabled:opacity-50 text-white font-semibold px-3 py-1.5 rounded-xl text-xs transition-all shadow-xs hover:shadow-md cursor-pointer"
-                title={t("Export Excel")}
-              >
-                <Download size={14} />
-                <span>{t("Export Excel")}</span>
-              </button>
+              
 
               <a
                 href="https://docs.google.com/spreadsheets/d/1tgTz4Z9GHGPs_E8MyzmcENCb82wItINFNupCeUn86iY/edit?gid=1526140983#gid=1526140983"
