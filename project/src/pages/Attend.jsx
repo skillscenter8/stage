@@ -30,7 +30,11 @@ const ALGERIAN_ARABIC_MONTHS = [
 
 export default function Attend() {
   const { t, i18n } = useTranslation();
-  const { title } = useParams();
+  const params = useParams();
+  
+  // Extract route parameter regardless of whether route is /attend/:id or /attend/:title
+  const rawParam = params.id || params.title || Object.values(params)[0] || '';
+
   const [workshop, setWorkshop] = useState(null);
   const [loadingWorkshop, setLoadingWorkshop] = useState(true);
 
@@ -45,10 +49,13 @@ export default function Attend() {
   const [errorMsg, setErrorMsg] = useState('');
 
   useEffect(() => {
-    if (title) {
-      fetchWorkshopDetails();
+    if (rawParam) {
+      fetchWorkshopDetails(rawParam);
+    } else {
+      setLoadingWorkshop(false);
+      setErrorMsg(t("Workshop session invalid or not loaded."));
     }
-  }, [title]);
+  }, [rawParam]);
 
   useEffect(() => {
     if (workshop?.title) {
@@ -58,26 +65,52 @@ export default function Attend() {
     }
   }, [workshop, i18n.language, t]);
 
-  const fetchWorkshopDetails = async () => {
+  const fetchWorkshopDetails = async (paramValue) => {
     setLoadingWorkshop(true);
-    const param = title ? decodeURIComponent(title) : '';
+    setErrorMsg('');
 
-    // Check whether URL param is a numeric ID (e.g. /attend/23) or title text (e.g. /attend/React%20101)
-    const isNumericId = /^\d+$/.test(param);
+    // Timeout safety fallback (5 seconds) to prevent infinite spinning
+    const timeoutId = setTimeout(() => {
+      setLoadingWorkshop((prev) => {
+        if (prev) {
+          setErrorMsg(t("Workshop session invalid or not loaded."));
+          return false;
+        }
+        return false;
+      });
+    }, 5000);
 
-    const { data, error } = await supabase
-      .from('formations')
-      .select('*')
-      .eq(isNumericId ? 'id' : 'title', isNumericId ? parseInt(param, 10) : param)
-      .single();
+    try {
+      const decodedParam = decodeURIComponent(paramValue).trim();
+      const isNumericId = /^\d+$/.test(decodedParam);
 
-    if (error) {
-      console.error('Error fetching workshop details:', error);
+      const { data, error } = await supabase
+        .from('formations')
+        .select('*')
+        .eq(isNumericId ? 'id' : 'title', isNumericId ? parseInt(decodedParam, 10) : decodedParam)
+        .maybeSingle();
+
+      clearTimeout(timeoutId);
+
+      if (error) {
+        console.error('Supabase fetch error:', error.message);
+        setErrorMsg(t("Workshop session invalid or not loaded."));
+        setWorkshop(null);
+      } else if (!data) {
+        console.warn(`No workshop found matching ${isNumericId ? 'ID' : 'title'}:`, decodedParam);
+        setErrorMsg(t("Workshop session invalid or not loaded."));
+        setWorkshop(null);
+      } else {
+        setWorkshop(data);
+      }
+    } catch (err) {
+      clearTimeout(timeoutId);
+      console.error('Unexpected fetch error:', err);
+      setErrorMsg(t("Workshop session invalid or not loaded."));
       setWorkshop(null);
-    } else if (data) {
-      setWorkshop(data);
+    } finally {
+      setLoadingWorkshop(false);
     }
-    setLoadingWorkshop(false);
   };
 
   const checkIsEnded = () => {
