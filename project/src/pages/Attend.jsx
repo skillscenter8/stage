@@ -20,7 +20,6 @@ import {
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
-// ⚠️ REPLACE THIS WITH YOUR DEPLOYED GOOGLE APPS SCRIPT WEB APP URL
 const GOOGLE_SHEETS_SCRIPT_URL = 'https://script.google.com/macros/library/d/1LqFHptiLTHYULa9ZLRf8uN9ZMYnvIUBZQhl7CXJf2p17iXhCXK3xqtVN/3';
 
 const ALGERIAN_ARABIC_MONTHS = [
@@ -32,7 +31,6 @@ export default function Attend() {
   const { t, i18n } = useTranslation();
   const params = useParams();
   
-  // Extract route parameter regardless of whether route is /attend/:id or /attend/:title
   const rawParam = params.id || params.title || Object.values(params)[0] || '';
 
   const [workshop, setWorkshop] = useState(null);
@@ -69,7 +67,6 @@ export default function Attend() {
     setLoadingWorkshop(true);
     setErrorMsg('');
 
-    // Timeout safety fallback (5 seconds) to prevent infinite spinning
     const timeoutId = setTimeout(() => {
       setLoadingWorkshop((prev) => {
         if (prev) {
@@ -92,12 +89,7 @@ export default function Attend() {
 
       clearTimeout(timeoutId);
 
-      if (error) {
-        console.error('Supabase fetch error:', error.message);
-        setErrorMsg(t("Workshop session invalid or not loaded."));
-        setWorkshop(null);
-      } else if (!data) {
-        console.warn(`No workshop found matching ${isNumericId ? 'ID' : 'title'}:`, decodedParam);
+      if (error || !data) {
         setErrorMsg(t("Workshop session invalid or not loaded."));
         setWorkshop(null);
       } else {
@@ -105,7 +97,6 @@ export default function Attend() {
       }
     } catch (err) {
       clearTimeout(timeoutId);
-      console.error('Unexpected fetch error:', err);
       setErrorMsg(t("Workshop session invalid or not loaded."));
       setWorkshop(null);
     } finally {
@@ -116,13 +107,11 @@ export default function Attend() {
   const checkIsEnded = () => {
     if (!workshop) return false;
 
-    // 1. Explicit DB Status Check
     const statusStr = String(workshop.status || '').toLowerCase().trim();
     if (['ended', 'terminé', 'termine', 'closed', 'completed', 'finished', 'منتهية', 'منتهي'].includes(statusStr)) {
       return true;
     }
 
-    // 2. Automatic Expiration Check (Start time + 2 hour duration window)
     if (workshop.date) {
       try {
         let year, month, day;
@@ -159,7 +148,7 @@ export default function Attend() {
         const workshopEndTime = new Date(workshopStart.getTime() + (2 * 60 * 60 * 1000));
         return workshopEndTime < new Date();
       } catch (err) {
-        console.error('Erreur d\'évaluation de la date:', err);
+        console.error('Date parsing error:', err);
       }
     }
 
@@ -222,7 +211,6 @@ export default function Attend() {
     setSubmitting(true);
     setErrorMsg('');
 
-    // 1. Insert into Supabase
     const { error } = await supabase.from('presences').insert([
       {
         formation_id: workshop.id,
@@ -237,15 +225,12 @@ export default function Attend() {
     if (error) {
       setErrorMsg(error.message);
     } else {
-      // 2. Direct Sync to Google Sheets
       if (GOOGLE_SHEETS_SCRIPT_URL && GOOGLE_SHEETS_SCRIPT_URL !== 'YOUR_GOOGLE_APPS_SCRIPT_WEB_APP_URL') {
         try {
           await fetch(GOOGLE_SHEETS_SCRIPT_URL, {
             method: 'POST',
             mode: 'no-cors',
-            headers: {
-              'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               table: 'presences',
               workshop_title: workshop?.title || '',
@@ -261,7 +246,6 @@ export default function Attend() {
           console.error("Google Sheets Sync Error:", err);
         }
       }
-
       setSubmitted(true);
     }
 
@@ -270,12 +254,12 @@ export default function Attend() {
 
   if (submitted) {
     return (
-      <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-center p-4 relative">
+      <div className="min-h-screen bg-slate-50/50 flex flex-col items-center justify-center p-4 relative font-sans">
         <div className="absolute top-4 right-4 rtl:right-auto rtl:left-4 z-20">
           <LanguageSelector />
         </div>
-        <div className="bg-white rounded-3xl p-8 max-w-md w-full text-center shadow-xl border border-slate-200/80 space-y-4">
-          <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto">
+        <div className="bg-white rounded-3xl p-8 max-w-md w-full text-center shadow-xl border border-slate-200/70 space-y-4">
+          <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
             <CheckCircle2 size={36} />
           </div>
           <h2 className="text-xl font-bold text-slate-900">{t("Attendance Recorded!")}</h2>
@@ -287,21 +271,16 @@ export default function Attend() {
     );
   }
 
-  // Display dedicated "Workshop Ended" message screen when ended
   if (!loadingWorkshop && isEnded) {
     return (
-      <div className="min-h-screen bg-slate-50 font-sans text-slate-800 pb-12 flex flex-col justify-center items-center p-4 relative">
+      <div className="min-h-screen bg-slate-50/50 font-sans text-slate-800 flex flex-col justify-center items-center p-4 relative">
         <div className="absolute top-4 right-4 rtl:right-auto rtl:left-4 z-20">
           <LanguageSelector />
         </div>
 
         <div className="max-w-md w-full bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-200/80 p-8 text-center space-y-5">
           <div className="flex justify-center mb-1">
-            <img 
-              src={logo} 
-              alt="Algérie Télécom" 
-              className="h-20 w-auto object-contain"
-            />
+            <img src={logo} alt="Algérie Télécom" className="h-16 w-auto object-contain" />
           </div>
 
           <div className="space-y-1">
@@ -315,12 +294,12 @@ export default function Attend() {
             )}
           </div>
 
-          <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto border border-amber-200 shadow-xs">
+          <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-2xl flex items-center justify-center mx-auto border border-amber-200/60 shadow-xs">
             <Clock size={32} />
           </div>
 
-          <div className="space-y-2 bg-amber-50/60 p-4 rounded-2xl border border-amber-200/60">
-            <h1 className="text-lg font-extrabold text-amber-900">
+          <div className="space-y-2 bg-amber-50/80 p-4 rounded-2xl border border-amber-200/60">
+            <h1 className="text-base font-bold text-amber-900">
               {t("This workshop has ended")}
             </h1>
             <p className="text-xs text-amber-800 leading-relaxed">
@@ -333,63 +312,59 @@ export default function Attend() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-800 pb-12 flex flex-col justify-center items-center p-4 relative">
+    <div className="min-h-screen bg-slate-50/50 font-sans text-slate-800 py-12 flex flex-col justify-center items-center p-4 relative">
       <div className="absolute top-4 right-4 rtl:right-auto rtl:left-4 z-20">
         <LanguageSelector />
       </div>
 
-      <div className="max-w-lg w-full bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-200/80">
-        <div className="p-6 text-center space-y-3">
-          <div className="flex justify-center mb-5">
-            <img 
-              src={logo} 
-              alt="Algérie Télécom" 
-              className="h-24 w-auto object-contain"
-            />
+      <div className="max-w-lg w-full bg-white rounded-3xl shadow-xl border border-slate-200/80 overflow-hidden">
+        <div className="p-6 sm:p-8 text-center space-y-4 border-b border-slate-100">
+          <div className="flex justify-center mb-3">
+            <img src={logo} alt="Algérie Télécom" className="h-20 w-auto object-contain" />
           </div>
           
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200/60 text-emerald-700 text-xs font-bold">
-            <Sparkles size={12} /> {t("Welcome to this Workshop")}
+            <Sparkles size={13} /> {t("Welcome to this Workshop")}
           </div>
 
           {loadingWorkshop ? (
-            <div className="flex justify-center items-center gap-2 text-xs text-slate-500 py-2">
-              <Loader2 size={16} className="animate-spin text-emerald-500" />
+            <div className="flex justify-center items-center gap-2 text-xs text-slate-500 py-4">
+              <Loader2 size={18} className="animate-spin text-emerald-600" />
               <span>{t("Loading workshop details...")}</span>
             </div>
           ) : (
             <div className="space-y-3 pt-1">
-              <h1 className="text-xl font-extrabold text-slate-900 capitalize tracking-tight">
+              <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 capitalize tracking-tight leading-snug">
                 {workshop?.title || t('Workshop Sign-In')}
               </h1>
               
-              <div className="flex flex-wrap items-center justify-center gap-2.5 text-xs font-semibold text-slate-600">
+              <div className="flex flex-wrap items-center justify-center gap-2 text-xs font-medium text-slate-600">
                 {workshop?.trainer_name && (
-                  <span className="flex items-center gap-1 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100 text-slate-700">
-                    <User size={13} className="text-emerald-600 shrink-0" />
+                  <span className="flex items-center gap-1 bg-slate-100/80 px-3 py-1.5 rounded-xl border border-slate-200/60 text-slate-800">
+                    <User size={14} className="text-emerald-600 shrink-0" />
                     <span>{workshop.trainer_name}</span>
                   </span>
                 )}
                 {workshop?.date && (
-                  <span className="flex items-center gap-1 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100 text-slate-700 capitalize">
-                    <Calendar size={13} className="text-emerald-600 shrink-0" />
+                  <span className="flex items-center gap-1 bg-slate-100/80 px-3 py-1.5 rounded-xl border border-slate-200/60 text-slate-800 capitalize">
+                    <Calendar size={14} className="text-emerald-600 shrink-0" />
                     <span>{formatSessionDate(workshop.date, workshop.time)}</span>
                   </span>
                 )}
                 {workshop?.location && (
-                  <span className="flex items-center gap-1 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100 text-slate-700">
-                    <MapPin size={13} className="text-emerald-600 shrink-0" />
+                  <span className="flex items-center gap-1 bg-slate-100/80 px-3 py-1.5 rounded-xl border border-slate-200/60 text-slate-800">
+                    <MapPin size={14} className="text-emerald-600 shrink-0" />
                     <span>{workshop.location}</span>
                   </span>
                 )}
               </div>
 
               {workshop?.description && (
-                <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 text-xs text-slate-600 text-left rtl:text-right leading-relaxed flex items-start gap-2.5">
+                <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 text-xs text-slate-600 text-left rtl:text-right leading-relaxed flex items-start gap-3">
                   <Info size={16} className="text-emerald-600 shrink-0 mt-0.5" />
                   <div>
-                    <span className="font-bold text-slate-800 block mb-0.5">{t("Description")}:</span>
-                    <p className="whitespace-pre-line">{workshop.description}</p>
+                    <span className="font-bold text-slate-900 block mb-0.5">{t("Description")}:</span>
+                    <p className="whitespace-pre-line text-slate-600">{workshop.description}</p>
                   </div>
                 </div>
               )}
@@ -397,16 +372,16 @@ export default function Attend() {
           )}
         </div>
 
-        <form onSubmit={handleSubmit} className="p-6 pt-2 space-y-4">
+        <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-4">
           {errorMsg && (
-            <div className="p-3.5 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs flex items-center gap-2.5">
-              <AlertCircle size={16} className="flex-shrink-0 text-red-600" />
+            <div className="p-3.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs flex items-center gap-2.5">
+              <AlertCircle size={16} className="shrink-0 text-rose-600" />
               <span>{errorMsg}</span>
             </div>
           )}
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
               {t("Full Name *")}
             </label>
             <div className="relative">
@@ -416,14 +391,14 @@ export default function Attend() {
                 required
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                placeholder="......................"
-                className="w-full pl-10 rtl:pl-3.5 rtl:pr-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-emerald-500 focus:bg-white transition-all"
+                placeholder="Ex: Mohamed Amine"
+                className="w-full pl-10 rtl:pl-3.5 rtl:pr-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-600/10 transition-all text-slate-900"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
               {t("Email Address *")}
             </label>
             <div className="relative">
@@ -433,14 +408,14 @@ export default function Attend() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="......................"
-                className="w-full pl-10 rtl:pl-3.5 rtl:pr-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-emerald-500 focus:bg-white transition-all"
+                placeholder="Ex: amine@example.com"
+                className="w-full pl-10 rtl:pl-3.5 rtl:pr-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-600/10 transition-all text-slate-900"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
               {t("Phone Number")}
             </label>
             <div className="relative">
@@ -449,14 +424,14 @@ export default function Attend() {
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                placeholder="......................"
-                className="w-full pl-10 rtl:pl-3.5 rtl:pr-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-emerald-500 focus:bg-white transition-all"
+                placeholder="Ex: 0550000000"
+                className="w-full pl-10 rtl:pl-3.5 rtl:pr-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-600/10 transition-all text-slate-900"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
               {t("Status / Function")}
             </label>
             <div className="relative">
@@ -465,14 +440,14 @@ export default function Attend() {
                 type="text"
                 value={status}
                 onChange={(e) => setStatus(e.target.value)}
-                placeholder="......................"
-                className="w-full pl-10 rtl:pl-3.5 rtl:pr-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-emerald-500 focus:bg-white transition-all"
+                placeholder="Ex: Engineer / Student"
+                className="w-full pl-10 rtl:pl-3.5 rtl:pr-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-600/10 transition-all text-slate-900"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
+            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
               {t("Reason / Motivation")}
             </label>
             <div className="relative">
@@ -481,8 +456,8 @@ export default function Attend() {
                 rows={3}
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                placeholder="......................"
-                className="w-full pl-10 rtl:pl-3.5 rtl:pr-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-emerald-500 focus:bg-white transition-all"
+                placeholder="..."
+                className="w-full pl-10 rtl:pl-3.5 rtl:pr-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-600/10 transition-all text-slate-900 resize-none"
               />
             </div>
           </div>
@@ -490,7 +465,7 @@ export default function Attend() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full mt-2 bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white font-bold py-3 px-4 rounded-xl text-xs transition-all shadow-md shadow-emerald-900/10 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+            className="w-full mt-3 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold py-3 px-4 rounded-xl text-xs uppercase tracking-wider transition-all shadow-md shadow-emerald-900/10 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
           >
             {submitting ? (
               <>

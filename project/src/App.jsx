@@ -28,20 +28,22 @@ export default function App() {
   if (loading) return null;
 
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/attend/:name" element={<Attend />} />
-        <Route path="/login" element={session ? <Navigate to="/dashboard" replace /> : <Login />} />
-        <Route 
-          path="/dashboard" 
-          element={session ? <Dashboard /> : <Navigate to="/login" replace />} 
-        />
-        <Route 
-          path="/session/:id" 
-          element={session ? <SessionDetail /> : <Navigate to="/login" replace />} 
-        />
-        <Route path="*" element={<Navigate to={session ? "/dashboard" : "/login"} replace />} />
-      </Routes>
-    </BrowserRouter>
+    <div className="min-h-screen bg-transparent">
+      <BrowserRouter>
+        <Routes>
+          <Route path="/attend/:name" element={<Attend />} />
+          <Route path="/login" element={session ? <Navigate to="/dashboard" replace /> : <Login />} />
+          <Route 
+            path="/dashboard" 
+            element={session ? <Dashboard /> : <Navigate to="/login" replace />} 
+          />
+          <Route 
+            path="/session/:id" 
+            element={session ? <SessionDetail /> : <Navigate to="/login" replace />} 
+          />
+          <Route path="*" element={<Navigate to={session ? "/dashboard" : "/login"} replace />} />
+        </Routes>
+      </BrowserRouter>
+    </div>
   );
 }

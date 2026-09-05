@@ -27,11 +27,11 @@ export default function LanguageSelector() {
   };
 
   return (
-    <div className="relative">
+    <div className="relative inline-block text-left">
       <button
         type="button"
         onClick={() => setShowLangDropdown(!showLangDropdown)}
-        className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white/90 backdrop-blur-md hover:bg-slate-100 border border-slate-200/80 rounded-xl transition-all shadow-xs"
+        className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white/90 backdrop-blur-md hover:bg-slate-100 border border-slate-200/80 rounded-xl transition-all shadow-xs cursor-pointer"
       >
         <Globe size={14} className="text-emerald-600 shrink-0" />
         <span>{currentLang}</span>
@@ -39,13 +39,13 @@ export default function LanguageSelector() {
       </button>
 
       {showLangDropdown && (
-        <div className="absolute right-0 ltr:right-0 rtl:left-0 mt-2 w-36 bg-white border border-slate-200 rounded-xl shadow-lg py-1 z-50">
+        <div className="absolute right-0 ltr:right-0 rtl:left-0 mt-2 w-36 bg-white border border-slate-200/80 rounded-xl shadow-lg py-1 z-50">
           {languages.map((lang) => (
             <button
               key={lang.code}
               type="button"
               onClick={() => handleLanguageChange(lang.code)}
-              className={`w-full text-left ltr:text-left rtl:text-right px-4 py-2 text-xs font-medium flex items-center justify-between hover:bg-slate-50 transition-colors ${
+              className={`w-full text-left ltr:text-left rtl:text-right px-4 py-2 text-xs font-medium flex items-center justify-between hover:bg-slate-50 transition-colors cursor-pointer ${
                 currentLang === lang.code ? 'text-emerald-600 font-bold bg-emerald-50/50' : 'text-slate-700'
               }`}
             >

@@ -3,7 +3,6 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { QRCodeSVG } from 'qrcode.react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import * as XLSX from 'xlsx';
 import { supabase } from '../config/supabaseClient';
 import logo from '../logo/logo.svg';
 import skillscenter from '../logo/skillscenter.jpg';
@@ -25,8 +24,7 @@ import {
   AlertTriangle,
   Clock,
   CheckCircle2,
-  Info,
-  FileSpreadsheet
+  Info
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -93,9 +91,7 @@ export default function SessionDetail() {
     if (!timeStr) return '';
     const match = String(timeStr).match(/(\d{1,2}):(\d{2})/);
     if (match) {
-      const hours = match[1].padStart(2, '0');
-      const minutes = match[2];
-      return `${hours}:${minutes}`;
+      return `${match[1].padStart(2, '0')}:${match[2]}`;
     }
     return String(timeStr);
   };
@@ -204,13 +200,11 @@ export default function SessionDetail() {
       }
 
       const workshopStart = new Date(year, month - 1, day, hours, minutes, seconds);
-
       if (isNaN(workshopStart.getTime())) return false;
 
       const workshopEndTime = new Date(workshopStart.getTime() + (2 * 60 * 60 * 1000));
       return workshopEndTime < new Date();
     } catch (err) {
-      console.error('Erreur de calcul du statut de l\'atelier:', err);
       return false;
     }
   };
@@ -351,10 +345,6 @@ export default function SessionDetail() {
     }
 
     doc.setFont('Helvetica', 'bold');
-    doc.setFontSize(14);
-    doc.setTextColor(0, 0, 0);
-    
-    startY += 7;
     doc.setFontSize(13);
     doc.text('REGISTRE OFFICIEL DE PRÉSENCE', 105, startY, { align: 'center' });
 
@@ -366,7 +356,6 @@ export default function SessionDetail() {
     startY += 8;
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(11);
-    doc.setTextColor(0, 0, 0);
     doc.text('DÉTAILS DE LA FORMATION', 14, startY);
 
     doc.setFontSize(9.5);
@@ -393,7 +382,6 @@ export default function SessionDetail() {
     startY += 4;
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(11);
-    doc.setTextColor(0, 0, 0);
     doc.text('LISTE DES PARTICIPANTS', 14, startY);
 
     const tableRows = attendees.map((student, index) => [
@@ -433,13 +421,11 @@ export default function SessionDetail() {
 
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(10);
-    doc.setTextColor(0, 0, 0);
     doc.text(`Total des participants: ${attendees.length}`, 14, finalY);
 
     finalY += 10;
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(11);
-    doc.setTextColor(0, 0, 0);
     doc.text('REMARQUES ET OBSERVATIONS DU FORMATEUR', 14, finalY);
 
     doc.setDrawColor(0, 0, 0);
@@ -458,7 +444,6 @@ export default function SessionDetail() {
     finalY += 12;
     doc.setFont('Helvetica', 'bold');
     doc.setFontSize(11);
-    doc.setTextColor(0, 0, 0);
     doc.text('SIGNATURES ET CACHETS', 14, finalY);
 
     finalY += 6;
@@ -466,7 +451,6 @@ export default function SessionDetail() {
     doc.rect(14, finalY, 85, 28);
     doc.setFontSize(8.5);
     doc.setFont('Helvetica', 'bold');
-    doc.setTextColor(0, 0, 0);
     doc.text('Signature du formateur', 18, finalY + 6);
 
     doc.rect(111, finalY, 85, 28);
@@ -488,7 +472,7 @@ export default function SessionDetail() {
   });
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-800 pb-12">
+    <div className="min-h-screen bg-slate-50/50 font-sans text-slate-800 pb-12">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-8">
         <div>
           <Link
@@ -515,10 +499,10 @@ export default function SessionDetail() {
           </div>
 
           <div className="mb-2">
-            <img src={skillscenter} alt="Logo" className="h-24 sm:h-28 rounded-4xl w-auto object-contain" />
+            <img src={skillscenter} alt="Logo" className="h-24 sm:h-28 rounded-3xl w-auto object-contain border border-slate-100 shadow-2xs" />
           </div>
 
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 capitalize tracking-tight max-w-2xl">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 capitalize tracking-tight max-w-2xl leading-snug">
             {workshop?.title || t('Loading Session...')}
           </h1>
 
@@ -542,7 +526,7 @@ export default function SessionDetail() {
           </div>
 
           {workshop?.description && (
-            <div className="w-full max-w-2xl bg-slate-50/80 border border-slate-200/80 rounded-2xl p-4 text-xs sm:text-sm text-slate-600 text-left rtl:text-right leading-relaxed flex items-start gap-3">
+            <div className="w-full max-w-2xl bg-slate-50 border border-slate-200/80 rounded-2xl p-4 text-xs sm:text-sm text-slate-600 text-left rtl:text-right leading-relaxed flex items-start gap-3">
               <Info size={18} className="text-emerald-600 shrink-0 mt-0.5" />
               <div className="space-y-1 w-full">
                 <span className="font-bold text-slate-800 block">{t("Description")}:</span>
@@ -554,8 +538,7 @@ export default function SessionDetail() {
           <div className="flex flex-wrap items-center justify-center gap-2.5 pt-4 border-t border-slate-100 w-full max-w-2xl">
             <button
               onClick={copyDirectLink}
-              className="inline-flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold px-4 py-2 rounded-xl text-xs transition-all border border-slate-200 cursor-pointer"
-              title={t("Copy Link")}
+              className="inline-flex items-center gap-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-semibold px-4 py-2 rounded-xl text-xs transition-all border border-slate-200/80 cursor-pointer"
             >
               {copied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
               <span>{copied ? t('Copied Link') : t('Copy Link')}</span>
@@ -563,8 +546,7 @@ export default function SessionDetail() {
 
             <button
               onClick={() => setShowQRModal(true)}
-              className="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold px-4 py-2 rounded-xl text-xs transition-all shadow-xs cursor-pointer"
-              title={t("Show QR")}
+              className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded-xl text-xs transition-all shadow-xs cursor-pointer"
             >
               <QrCode size={14} />
               <span>{t("Show QR")}</span>
@@ -572,8 +554,7 @@ export default function SessionDetail() {
 
             <button
               onClick={downloadQRCode}
-              className="inline-flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-white font-semibold px-4 py-2 rounded-xl text-xs transition-all cursor-pointer"
-              title={t("Save QR")}
+              className="inline-flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold px-4 py-2 rounded-xl text-xs transition-all cursor-pointer"
             >
               <Download size={14} />
               <span>{t("Save QR")}</span>
@@ -582,7 +563,6 @@ export default function SessionDetail() {
             <button
               onClick={exportPDF}
               className="inline-flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white font-bold px-4 py-2 rounded-xl text-xs transition-all shadow-xs cursor-pointer"
-              title={t("Export PDF")}
             >
               <FileText size={14} />
               <span>{t("Export PDF")}</span>
@@ -594,7 +574,6 @@ export default function SessionDetail() {
                 setShowDeleteModal(true);
               }}
               className="inline-flex items-center gap-2 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white font-bold px-4 py-2 rounded-xl text-xs transition-all border border-rose-200/80 cursor-pointer"
-              title={t("Delete Workshop")}
             >
               <Trash2 size={14} />
               <span>{t("Delete")}</span>
@@ -625,15 +604,15 @@ export default function SessionDetail() {
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="......................"
-                  className="w-full pl-9 rtl:pl-4 rtl:pr-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium placeholder:text-slate-400 focus:outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/10 transition-all shadow-2xs"
+                  placeholder="..."
+                  className="w-full pl-9 rtl:pl-4 rtl:pr-9 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium placeholder:text-slate-400 focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/10 transition-all shadow-2xs text-slate-900"
                 />
               </div>
             </div>
 
             {loading ? (
               <div className="text-center py-16 bg-white">
-                <Loader2 size={26} className="animate-spin text-emerald-500 mx-auto mb-2" />
+                <Loader2 size={26} className="animate-spin text-emerald-600 mx-auto mb-2" />
                 <p className="text-xs text-slate-500 font-medium">{t("Loading participant register...")}</p>
               </div>
             ) : filteredAttendees.length === 0 ? (
@@ -648,53 +627,37 @@ export default function SessionDetail() {
               </div>
             ) : (
               <div className="w-full overflow-x-auto">
-                <table className="w-full table-fixed text-left rtl:text-right text-xs min-w-[650px]">
+                <table className="w-full text-left rtl:text-right text-xs min-w-[650px]">
                   <thead className="bg-slate-50/80 text-slate-500 uppercase font-bold border-b border-slate-100 tracking-wider">
                     <tr>
-                      <th className="p-4 pl-6 w-[20%]">{t("Full Name")}</th>
-                      <th className="p-4 w-[23%]">{t("Email Address")}</th>
-                      <th className="p-4 w-[16%]">{t("Phone")}</th>
-                      <th className="p-4 w-[14%]">{t("Status / Role")}</th>
-                      <th className="p-4 w-[17%]">{t("Reason")}</th>
-                      <th className="p-4 pr-6 w-[10%] text-center">{t("Actions")}</th>
+                      <th className="p-4 pl-6">{t("Full Name")}</th>
+                      <th className="p-4">{t("Email Address")}</th>
+                      <th className="p-4">{t("Phone")}</th>
+                      <th className="p-4">{t("Status / Role")}</th>
+                      <th className="p-4">{t("Reason")}</th>
+                      <th className="p-4 pr-6 text-center">{t("Actions")}</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 font-medium">
+                  <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
                     {filteredAttendees.map((student) => (
                       <tr key={student.id} className="hover:bg-slate-50/80 transition-colors group">
-                        <td className="p-4 pl-6 font-bold text-slate-900 group-hover:text-emerald-700 transition-colors break-words whitespace-normal leading-relaxed">
+                        <td className="p-4 pl-6 font-bold text-slate-900 group-hover:text-emerald-700 transition-colors">
                           {student.full_name || '—'}
                         </td>
-
-                        <td className="p-4 text-slate-600 break-all whitespace-normal leading-relaxed">
-                          {student.email || '—'}
-                        </td>
-
-                        <td className="p-4 text-slate-600 break-all whitespace-normal leading-relaxed">
-                          {student.phone || '—'}
-                        </td>
-
-                        <td className="p-4 break-words whitespace-normal">
-                          <span className="inline-flex items-center px-2.5 py-1 bg-blue-50 text-blue-900 font-bold rounded-lg border border-blue-200/60 text-[11px] break-words">
-                            {student.status || t('Participant')}
+                        <td className="p-4 text-slate-600">{student.email || '—'}</td>
+                        <td className="p-4 text-slate-600 whitespace-nowrap">{student.phone || '—'}</td>
+                        <td className="p-4">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
+                            {student.status || '—'}
                           </span>
                         </td>
-
-                        <td className="p-4 text-slate-600 break-words whitespace-normal leading-relaxed">
-                          {student.reason || '—'}
-                        </td>
-
+                        <td className="p-4 text-slate-600 max-w-xs">{student.reason || '—'}</td>
                         <td className="p-4 pr-6 text-center">
                           <button
-                            type="button"
-                            onClick={() => {
-                              setParticipantDeleteError('');
-                              setParticipantToDelete(student);
-                            }}
-                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
-                            title={t("Delete Participant")}
+                            onClick={() => setParticipantToDelete(student)}
+                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                           >
-                            <Trash2 size={16} />
+                            <Trash2 size={15} />
                           </button>
                         </td>
                       </tr>
@@ -708,60 +671,32 @@ export default function SessionDetail() {
       </div>
 
       {showQRModal && (
-        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl overflow-hidden text-center relative border border-slate-200/80">
-            <div className="bg-slate-900 p-5 text-white flex items-center justify-between border-b border-slate-800">
-              <div className="flex items-center gap-2">
-                <QrCode size={18} className="text-emerald-400" />
-                <h3 className="text-xs font-bold uppercase tracking-wider text-slate-200">{t("Attendance QR Code")}</h3>
-              </div>
-              <button
-                onClick={() => setShowQRModal(false)}
-                className="text-slate-400 hover:text-white p-1 rounded-lg hover:bg-slate-800 transition-colors cursor-pointer"
-              >
-                <X size={18} />
-              </button>
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 border border-slate-200 text-center space-y-4 shadow-2xl relative">
+            <button
+              onClick={() => setShowQRModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 p-1 rounded-lg cursor-pointer"
+            >
+              <X size={18} />
+            </button>
+            <h3 className="text-base font-bold text-slate-900">{t("Attendance QR Code")}</h3>
+            <div className="flex justify-center p-4 bg-white rounded-2xl border border-slate-100">
+              <QRCodeSVG value={studentFormUrl} size={220} level="H" includeMargin={true} />
             </div>
-
-            <div className="p-6 space-y-4 flex flex-col items-center">
-              <div className="p-4 bg-white rounded-2xl border-2 border-slate-100 shadow-md">
-                <QRCodeSVG value={studentFormUrl} size={210} level="H" includeMargin={true} />
-              </div>
-
-              <div className="space-y-1">
-                <p className="text-sm font-bold text-slate-900 max-w-xs line-clamp-1">
-                  {workshop?.title}
-                </p>
-                <p className="text-xs text-slate-500">
-                  {t("Scan with mobile camera to submit presence.")}
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 w-full pt-2">
-                <button
-                  onClick={copyDirectLink}
-                  className="bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold py-2.5 px-3 rounded-xl text-xs transition-all border border-slate-200 flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  {copied ? <Check size={14} className="text-emerald-600" /> : <Copy size={14} />}
-                  <span>{copied ? t('Copied') : t('Copy Link')}</span>
-                </button>
-
-                <button
-                  onClick={downloadQRCode}
-                  className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2.5 px-3 rounded-xl text-xs transition-all shadow-md flex items-center justify-center gap-1.5 cursor-pointer"
-                >
-                  <Download size={14} />
-                  <span>{t("Save Image")}</span>
-                </button>
-              </div>
-            </div>
+            <p className="text-xs text-slate-500 break-all">{studentFormUrl}</p>
+            <button
+              onClick={downloadQRCode}
+              className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-md shadow-emerald-900/10 cursor-pointer"
+            >
+              {t("Save QR Image")}
+            </button>
           </div>
         </div>
       )}
 
       {showDeleteModal && (
         <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl p-6 border border-slate-200 text-center space-y-4 animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl p-6 border border-slate-200 text-center space-y-4">
             <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto border border-rose-200">
               <AlertTriangle size={24} />
             </div>
@@ -774,7 +709,7 @@ export default function SessionDetail() {
             </div>
 
             {deleteError && (
-              <div className="p-2.5 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs text-left">
+              <div className="p-2.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs text-left">
                 {deleteError}
               </div>
             )}
@@ -792,7 +727,7 @@ export default function SessionDetail() {
                 type="button"
                 onClick={confirmDeleteSession}
                 disabled={deleting}
-                className="flex-1 py-2.5 px-4 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-rose-900/20 cursor-pointer disabled:opacity-50"
+                className="flex-1 py-2.5 px-4 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-rose-900/20 cursor-pointer disabled:opacity-50"
               >
                 {deleting ? t("Deleting...") : t("Yes, Delete")}
               </button>
@@ -803,20 +738,20 @@ export default function SessionDetail() {
 
       {participantToDelete && (
         <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl p-6 border border-slate-200 text-center space-y-4 animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl p-6 border border-slate-200 text-center space-y-4">
             <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto border border-rose-200">
               <AlertTriangle size={24} />
             </div>
 
             <div className="space-y-1">
-              <h3 className="text-base font-bold text-slate-900">{t("Delete Participant?")}</h3>
+              <h3 className="text-base font-bold text-slate-900">{t("Remove Participant?")}</h3>
               <p className="text-xs text-slate-500 leading-relaxed">
-                {t("Are you sure you want to remove")} <strong className="text-slate-800">"{participantToDelete.full_name || participantToDelete.email}"</strong> {t("from this session?")}
+                {t("Are you sure you want to remove")} <strong className="text-slate-800">"{participantToDelete.full_name}"</strong> {t("from this register")}?
               </p>
             </div>
 
             {participantDeleteError && (
-              <div className="p-2.5 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs text-left">
+              <div className="p-2.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs text-left">
                 {participantDeleteError}
               </div>
             )}
@@ -834,9 +769,9 @@ export default function SessionDetail() {
                 type="button"
                 onClick={confirmDeleteParticipant}
                 disabled={deletingParticipant}
-                className="flex-1 py-2.5 px-4 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-rose-900/20 cursor-pointer disabled:opacity-50"
+                className="flex-1 py-2.5 px-4 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-rose-900/20 cursor-pointer disabled:opacity-50"
               >
-                {deletingParticipant ? t("Deleting...") : t("Yes, Delete")}
+                {deletingParticipant ? t("Removing...") : t("Yes, Remove")}
               </button>
             </div>
           </div>

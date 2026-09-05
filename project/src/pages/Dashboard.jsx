@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom';
 import { supabase } from '../config/supabaseClient';
 import Navbar from './Navbar';
 import skillscenter from '../logo/skillscenter.jpg';
-import logo from '../logo/logo.svg';
 import * as XLSX from 'xlsx';
 import { 
   Plus, 
@@ -23,7 +22,6 @@ import {
   CheckCircle2,
   FileSpreadsheet,
   Upload,
-  Download,
   CheckSquare,
   Square
 } from 'lucide-react';
@@ -82,13 +80,11 @@ export default function Dashboard() {
         .order('id', { ascending: false });
 
       if (error) {
-        console.error('Erreur de récupération des formations:', error);
         setFetchError(error.message);
       } else {
         setFormations(data || []);
       }
     } catch (err) {
-      console.error('Erreur inattendue:', err);
       setFetchError(err.message);
     } finally {
       setLoading(false);
@@ -99,9 +95,7 @@ export default function Dashboard() {
     if (!timeStr) return '';
     const match = String(timeStr).match(/(\d{1,2}):(\d{2})/);
     if (match) {
-      const hours = match[1].padStart(2, '0');
-      const minutes = match[2];
-      return `${hours}:${minutes}`;
+      return `${match[1].padStart(2, '0')}:${match[2]}`;
     }
     return String(timeStr);
   };
@@ -134,9 +128,7 @@ export default function Dashboard() {
         day = parsedDate.getDate();
       }
 
-      let hours = 23;
-      let minutes = 59;
-      let seconds = 59;
+      let hours = 23, minutes = 59, seconds = 59;
 
       if (timeStr) {
         const timeMatch = String(timeStr).match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
@@ -148,14 +140,11 @@ export default function Dashboard() {
       }
 
       const workshopStart = new Date(year, month - 1, day, hours, minutes, seconds);
-
       if (isNaN(workshopStart.getTime())) return false;
 
       const workshopEndTime = new Date(workshopStart.getTime() + (2 * 60 * 60 * 1000));
-
       return workshopEndTime < new Date();
     } catch (err) {
-      console.error('Erreur de calcul du statut:', err);
       return false;
     }
   };
@@ -313,16 +302,10 @@ export default function Dashboard() {
     if (!str) return null;
 
     const isoMatch = str.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
-    if (isoMatch) {
-      const [, y, m, d] = isoMatch;
-      return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
-    }
+    if (isoMatch) return `${isoMatch[1]}-${isoMatch[2].padStart(2, '0')}-${isoMatch[3].padStart(2, '0')}`;
 
     const euMatch = str.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);
-    if (euMatch) {
-      const [, d, m, y] = euMatch;
-      return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
-    }
+    if (euMatch) return `${euMatch[3]}-${euMatch[2].padStart(2, '0')}-${euMatch[1].padStart(2, '0')}`;
 
     return str;
   };
@@ -350,41 +333,36 @@ export default function Dashboard() {
     if (!str) return null;
 
     const colonMatch = str.match(/(\d{1,2}):(\d{2})/);
-    if (colonMatch) {
-      return `${colonMatch[1].padStart(2, '0')}:${colonMatch[2]}`;
-    }
-
-    const hMatch = str.match(/(\d{1,2})[hH](\d{2})?/);
-    if (hMatch) {
-      const hours = hMatch[1].padStart(2, '0');
-      const minutes = hMatch[2] ? hMatch[2] : '00';
-      return `${hours}:${minutes}`;
-    }
-
-    const dotMatch = str.match(/^(\d{1,2})\.(\d{2})$/);
-    if (dotMatch) {
-      return `${dotMatch[1].padStart(2, '0')}:${dotMatch[2]}`;
-    }
+    if (colonMatch) return `${colonMatch[1].padStart(2, '0')}:${colonMatch[2]}`;
 
     return str;
   };
 
   const getFieldValue = (row, keywords) => {
     const keys = Object.keys(row);
-    for (const key of keys) {
-      const cleanKey = key.trim().toLowerCase();
-      if (keywords.some((kw) => cleanKey === kw.toLowerCase())) {
-        const val = row[key];
-        if (val !== undefined && val !== null && String(val).trim() !== '') return val;
+
+    // First pass: Exact match in priority order of keywords
+    for (const kw of keywords) {
+      const cleanKw = kw.trim().toLowerCase();
+      for (const key of keys) {
+        if (key.trim().toLowerCase() === cleanKw) {
+          const val = row[key];
+          if (val !== undefined && val !== null && String(val).trim() !== '') return val;
+        }
       }
     }
-    for (const key of keys) {
-      const cleanKey = key.trim().toLowerCase();
-      if (keywords.some((kw) => cleanKey.includes(kw.toLowerCase()))) {
-        const val = row[key];
-        if (val !== undefined && val !== null && String(val).trim() !== '') return val;
+
+    // Second pass: Substring match in priority order of keywords
+    for (const kw of keywords) {
+      const cleanKw = kw.trim().toLowerCase();
+      for (const key of keys) {
+        if (key.trim().toLowerCase().includes(cleanKw)) {
+          const val = row[key];
+          if (val !== undefined && val !== null && String(val).trim() !== '') return val;
+        }
       }
     }
+
     return undefined;
   };
 
@@ -410,36 +388,25 @@ export default function Dashboard() {
 
       const { data: { user } } = await supabase.auth.getUser();
 
-      const titleKeywords = ['title', 'titre', 'nom', 'atelier', 'formation', 'subject', 'sujet', 'name'];
+      // Priority keyword mapping
+      const titleKeywords = ['thématique', 'thematique', 'intitulé de la session', 'title', 'titre', 'nom', 'atelier', 'formation', 'subject', 'sujet', 'name'];
       const dateKeywords = ['date', 'jour', 'date_session', 'session_date'];
-      const timeKeywords = ['time', 'heure', 'horaire', 'horaires', 'start_time', 'time_start', 'debut', 'début'];
-      const trainerKeywords = ['trainer', 'formateur', 'instructor', 'animateur', 'teacher', 'enseignant'];
-      const locationKeywords = ['location', 'lieu', 'salle', 'room', 'place', 'adresse'];
-      const descKeywords = ['description', 'desc', 'détails', 'details', 'summary', 'about'];
+      const timeKeywords = ['heure de début', 'heure de debut', 'time', 'heure', 'horaire', 'horaires', 'start_time', 'time_start', 'debut', 'début'];
+      const trainerKeywords = ['formateur', 'trainer', 'instructor', 'animateur', 'teacher', 'enseignant'];
+      const locationKeywords = ['salle', 'location', 'lieu', 'room', 'place', 'adresse'];
+      const descKeywords = ["description de l'activité", "description de l'activite", 'description', 'desc', 'détails', 'details', 'summary', 'about'];
 
       const formattedRows = rawData
-        .filter((row) => {
-          const rawTitle = getFieldValue(row, titleKeywords);
-          return Boolean(rawTitle && String(rawTitle).trim());
-        })
-        .map((row) => {
-          const rawTitle = getFieldValue(row, titleKeywords);
-          const rawDate = getFieldValue(row, dateKeywords);
-          const rawTime = getFieldValue(row, timeKeywords);
-          const rawTrainer = getFieldValue(row, trainerKeywords);
-          const rawLocation = getFieldValue(row, locationKeywords);
-          const rawDesc = getFieldValue(row, descKeywords);
-
-          return {
-            title: String(rawTitle).trim(),
-            date: parseExcelDate(rawDate),
-            time: parseExcelTime(rawTime),
-            trainer_name: rawTrainer ? String(rawTrainer).trim() : '',
-            location: rawLocation ? String(rawLocation).trim() : '',
-            description: rawDesc ? String(rawDesc).trim() : '',
-            trainer_id: user?.id || null,
-          };
-        });
+        .filter((row) => Boolean(getFieldValue(row, titleKeywords)))
+        .map((row) => ({
+          title: String(getFieldValue(row, titleKeywords)).trim(),
+          date: parseExcelDate(getFieldValue(row, dateKeywords)),
+          time: parseExcelTime(getFieldValue(row, timeKeywords)),
+          trainer_name: getFieldValue(row, trainerKeywords) ? String(getFieldValue(row, trainerKeywords)).trim() : '',
+          location: getFieldValue(row, locationKeywords) ? String(getFieldValue(row, locationKeywords)).trim() : '',
+          description: getFieldValue(row, descKeywords) ? String(getFieldValue(row, descKeywords)).trim() : '',
+          trainer_id: user?.id || null,
+        }));
 
       if (formattedRows.length === 0) {
         setImportErrorMsg(t('No valid rows with titles found in the uploaded file.'));
@@ -454,7 +421,6 @@ export default function Dashboard() {
       setImportSuccessCount(formattedRows.length);
       fetchFormations();
     } catch (err) {
-      console.error('Error uploading Excel file:', err);
       setImportErrorMsg(t('Error importing file: ') + err.message);
     } finally {
       setUploadingExcel(false);
@@ -470,10 +436,7 @@ export default function Dashboard() {
     const lang = i18n.language || 'fr';
 
     if (lang.startsWith('ar')) {
-      const dayNum = parsed.getDate();
-      const monthName = ALGERIAN_ARABIC_MONTHS[parsed.getMonth()];
-      const yearNum = parsed.getFullYear();
-      return `${dayNum} ${monthName} ${yearNum}`;
+      return `${parsed.getDate()} ${ALGERIAN_ARABIC_MONTHS[parsed.getMonth()]} ${parsed.getFullYear()}`;
     }
 
     return parsed.toLocaleDateString('fr-FR', {
@@ -502,8 +465,7 @@ export default function Dashboard() {
       if (!f.date) {
         matchesDate = false;
       } else {
-        const rawDate = f.date.slice(0, 10);
-        matchesDate = rawDate === dateFilter;
+        matchesDate = f.date.slice(0, 10) === dateFilter;
       }
     }
 
@@ -538,17 +500,16 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-800 pb-16">
+    <div className="min-h-screen bg-slate-50/50 font-sans text-slate-800 pb-16">
       <Navbar />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 space-y-6">
-        {/* Header Banner Component */}
-        <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-xs flex flex-col lg:flex-row items-start justify-between gap-6">
+        <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-200/80 shadow-xs flex flex-col lg:flex-row items-start justify-between gap-6">
           <div className="flex items-start gap-4 sm:gap-5 max-w-2xl">
             <img 
               src={skillscenter} 
-              alt="Logo Skills Center" 
-              className="sm:h-20 sm:w-20 rounded-4xl object-cover shrink-0 border border-slate-100 shadow-xs"
+              alt="Skills Center" 
+              className="h-16 w-16 sm:h-20 sm:w-20 rounded-2xl object-cover shrink-0 border border-slate-100 shadow-xs"
             />
             <div className="space-y-1.5">
               <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold tracking-tight text-slate-900 leading-tight">
@@ -572,7 +533,7 @@ export default function Dashboard() {
                 setDescription('');
                 setShowCreateModal(true);
               }}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-semibold px-4 py-2.5 rounded-xl text-xs transition-all shadow-xs hover:shadow-md cursor-pointer"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold px-4 py-2.5 rounded-xl text-xs transition-all shadow-xs cursor-pointer"
             >
               <Plus size={16} />
               <span>{t("Add New Formation")}</span>
@@ -600,15 +561,14 @@ export default function Dashboard() {
                 href="https://docs.google.com/spreadsheets/d/1tgTz4Z9GHGPs_E8MyzmcENCb82wItINFNupCeUn86iY/edit?gid=1526140983#gid=1526140983"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold px-3 py-1.5 rounded-xl text-xs transition-all shadow-xs hover:shadow-md cursor-pointer no-underline"
-                title="Google Sheets"
+                className="inline-flex items-center justify-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold px-3 py-1.5 rounded-xl text-xs transition-all shadow-xs cursor-pointer no-underline"
               >
                 <FileSpreadsheet size={14} />
                 <span>Google Sheets</span>
               </a>
 
               <label
-                className={`inline-flex items-center justify-center gap-1.5 bg-emerald-800 hover:bg-emerald-900 text-white font-semibold px-3 py-1.5 rounded-xl text-xs transition-all shadow-xs hover:shadow-md cursor-pointer ${
+                className={`inline-flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold px-3 py-1.5 rounded-xl text-xs transition-all shadow-xs cursor-pointer ${
                   uploadingExcel ? 'opacity-60 pointer-events-none' : ''
                 }`}
               >
@@ -626,7 +586,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
+        <div className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-xs space-y-3">
           <div className="flex flex-col md:flex-row items-center gap-3">
             {filteredFormations.length > 0 && (
               <button
@@ -650,7 +610,7 @@ export default function Dashboard() {
                   setDeleteError('');
                   setShowBatchDeleteModal(true);
                 }}
-                className="inline-flex items-center gap-1.5 px-3 py-2 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white rounded-xl text-xs font-semibold transition-all shadow-xs cursor-pointer shrink-0"
+                className="inline-flex items-center gap-1.5 px-3 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-semibold transition-all shadow-xs cursor-pointer shrink-0"
               >
                 <Trash2 size={15} />
                 <span>{t("Delete Selected")} ({selectedIds.length})</span>
@@ -664,7 +624,7 @@ export default function Dashboard() {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder={t("Search by workshop title or trainer name")}
-                className="w-full pl-10 rtl:pl-4 rtl:pr-10 pr-10 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-600/20 transition-all text-slate-800 placeholder-slate-400"
+                className="w-full pl-10 rtl:pl-4 rtl:pr-10 pr-10 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-600/10 transition-all text-slate-800 placeholder-slate-400"
               />
               {searchTerm && (
                 <button
@@ -717,7 +677,7 @@ export default function Dashboard() {
                 type="date"
                 value={dateFilter}
                 onChange={(e) => setDateFilter(e.target.value)}
-                className="w-full md:w-auto px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:outline-none focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-600/20 transition-all"
+                className="w-full md:w-auto px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-700 focus:outline-none focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-600/10 transition-all"
               />
               {dateFilter && (
                 <button
@@ -745,14 +705,14 @@ export default function Dashboard() {
         </div>
 
         {fetchError && (
-          <div className="p-4 bg-red-50 border border-red-200 rounded-2xl flex items-center gap-3 text-red-700 text-xs">
-            <AlertCircle size={18} className="shrink-0 text-red-600" />
+          <div className="p-4 bg-rose-50 border border-rose-200 rounded-2xl flex items-center gap-3 text-rose-700 text-xs">
+            <AlertCircle size={18} className="shrink-0 text-rose-600" />
             <p><strong>{t("Error")}:</strong> {fetchError}</p>
           </div>
         )}
 
         {loading ? (
-          <div className="text-center py-20 bg-white rounded-3xl border border-slate-200 shadow-xs">
+          <div className="text-center py-20 bg-white rounded-3xl border border-slate-200/80 shadow-xs">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-slate-200 border-t-emerald-600 mb-3" />
             <p className="text-slate-500 text-xs font-medium">{t("Loading session database...")}</p>
           </div>
@@ -788,10 +748,10 @@ export default function Dashboard() {
               return (
                 <div
                   key={item.id}
-                  className={`bg-white rounded-2xl border transition-all duration-200 flex flex-col justify-between overflow-hidden ${
+                  className={`bg-white rounded-3xl border transition-all duration-200 flex flex-col justify-between overflow-hidden ${
                     isSelected
                       ? 'border-emerald-500 ring-2 ring-emerald-500/20 shadow-md'
-                      : 'border-slate-200 shadow-xs hover:shadow-md hover:border-slate-300'
+                      : 'border-slate-200/80 shadow-xs hover:shadow-md hover:border-slate-300'
                   }`}
                 >
                   <div className="p-5 space-y-4">
@@ -801,7 +761,6 @@ export default function Dashboard() {
                           type="button"
                           onClick={() => toggleSelectId(item.id)}
                           className="pt-0.5 text-slate-400 hover:text-emerald-600 transition-colors cursor-pointer shrink-0"
-                          title={isSelected ? t("Deselect") : t("Select")}
                         >
                           {isSelected ? (
                             <CheckSquare size={18} className="text-emerald-600" />
@@ -859,14 +818,14 @@ export default function Dashboard() {
                       <div className="grid grid-cols-2 gap-2 pt-1">
                         <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-100">
                           <Calendar size={14} className="text-emerald-600 shrink-0" />
-                          <span className="font-medium text-slate-700 text-[11px] truncate" title={formatDateDisplay(item.date)}>
+                          <span className="font-medium text-slate-700 text-[11px] truncate">
                             {formatDateDisplay(item.date)}
                           </span>
                         </div>
 
                         <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-100">
                           <Clock size={14} className="text-emerald-600 shrink-0" />
-                          <span className="font-medium text-slate-700 text-[11px] truncate" title={item.time ? formatTimeDisplay(item.time) : t('Time TBD')}>
+                          <span className="font-medium text-slate-700 text-[11px] truncate">
                             {item.time ? formatTimeDisplay(item.time) : t('Time TBD')}
                           </span>
                         </div>
@@ -874,7 +833,7 @@ export default function Dashboard() {
 
                       <div className="flex items-center gap-2 bg-slate-50 p-2 rounded-xl border border-slate-100">
                         <MapPin size={14} className="text-emerald-600 shrink-0" />
-                        <span className="font-medium text-slate-700 text-[11px] truncate" title={item.location || t('Location TBD')}>
+                        <span className="font-medium text-slate-700 text-[11px] truncate">
                           {item.location || t('Location TBD')}
                         </span>
                       </div>
@@ -884,7 +843,7 @@ export default function Dashboard() {
                   <div className="p-5 pt-0 flex items-center gap-2">
                     <Link
                       to={`/session/${item.id}`}
-                      className="flex-1 inline-flex items-center justify-center gap-2 font-semibold text-slate-800 bg-slate-100 hover:bg-emerald-600 hover:text-white active:bg-emerald-700 py-2.5 px-4 rounded-xl text-xs transition-colors duration-200 cursor-pointer touch-manipulation border border-slate-200/80 hover:border-emerald-600"
+                      className="flex-1 inline-flex items-center justify-center gap-2 font-bold text-slate-800 bg-slate-100 hover:bg-emerald-600 hover:text-white active:bg-emerald-700 py-2.5 px-4 rounded-xl text-xs transition-colors duration-200 cursor-pointer border border-slate-200/80 hover:border-emerald-600"
                     >
                       <Eye size={15} />
                       <span>{t("View Workshop")}</span>
@@ -896,7 +855,6 @@ export default function Dashboard() {
                         setDeleteTarget({ id: item.id, title: item.title });
                       }}
                       className="inline-flex items-center justify-center p-2.5 rounded-xl text-xs font-semibold text-rose-600 bg-rose-50 hover:bg-rose-600 hover:text-white transition-colors duration-200 cursor-pointer border border-rose-200/80 shrink-0"
-                      title={t("Delete Workshop")}
                     >
                       <Trash2 size={15} />
                     </button>
@@ -911,7 +869,7 @@ export default function Dashboard() {
       {showCreateModal && (
         <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden relative border border-slate-200 my-auto">
-            <div className="bg-slate-900 p-5 text-white flex items-center justify-between border-b border-slate-800">
+            <div className="bg-slate-900 p-5 text-white flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-bold">{t("Create New Workshop")}</h3>
                 <p className="text-[11px] text-slate-300">{t("Add a formation program register.")}</p>
@@ -926,8 +884,8 @@ export default function Dashboard() {
 
             <form onSubmit={handleCreateFormation} className="p-6 space-y-4">
               {modalError && (
-                <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs flex items-center gap-2">
-                  <AlertCircle size={16} className="shrink-0 text-red-600" />
+                <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs flex items-center gap-2">
+                  <AlertCircle size={16} className="shrink-0 text-rose-600" />
                   <span>{modalError}</span>
                 </div>
               )}
@@ -941,8 +899,8 @@ export default function Dashboard() {
                   required
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  placeholder="......................"
-                  className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 bg-slate-50 text-slate-900"
+                  placeholder="..."
+                  className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/10 bg-slate-50 text-slate-900"
                 />
               </div>
 
@@ -955,8 +913,8 @@ export default function Dashboard() {
                   rows={3}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="......................"
-                  className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 bg-slate-50 text-slate-900 resize-none"
+                  placeholder="..."
+                  className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/10 bg-slate-50 text-slate-900 resize-none"
                 />
               </div>
 
@@ -969,8 +927,8 @@ export default function Dashboard() {
                   required
                   value={trainerName}
                   onChange={(e) => setTrainerName(e.target.value)}
-                  placeholder="......................"
-                  className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 bg-slate-50 text-slate-900"
+                  placeholder="..."
+                  className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/10 bg-slate-50 text-slate-900"
                 />
               </div>
 
@@ -986,7 +944,7 @@ export default function Dashboard() {
                     max="2035-12-31"
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 bg-slate-50 text-slate-900"
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/10 bg-slate-50 text-slate-900"
                   />
                 </div>
 
@@ -1001,7 +959,7 @@ export default function Dashboard() {
                     max="19:00"
                     value={time}
                     onChange={(e) => setTime(e.target.value)}
-                    className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 bg-slate-50 text-slate-900"
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2.5 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/10 bg-slate-50 text-slate-900"
                   />
                 </div>
               </div>
@@ -1015,8 +973,8 @@ export default function Dashboard() {
                   required
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
-                  placeholder="......................"
-                  className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/20 bg-slate-50 text-slate-900"
+                  placeholder="..."
+                  className="w-full border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs focus:outline-none focus:border-emerald-600 focus:ring-2 focus:ring-emerald-600/10 bg-slate-50 text-slate-900"
                 />
               </div>
 
@@ -1043,7 +1001,7 @@ export default function Dashboard() {
 
       {deleteTarget && (
         <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl p-6 border border-slate-200 text-center space-y-4 animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl p-6 border border-slate-200 text-center space-y-4">
             <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto border border-rose-200">
               <AlertTriangle size={24} />
             </div>
@@ -1056,7 +1014,7 @@ export default function Dashboard() {
             </div>
 
             {deleteError && (
-              <div className="p-2.5 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs text-left">
+              <div className="p-2.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs text-left">
                 {deleteError}
               </div>
             )}
@@ -1074,7 +1032,7 @@ export default function Dashboard() {
                 type="button"
                 onClick={confirmDeleteFormation}
                 disabled={deleting}
-                className="flex-1 py-2.5 px-4 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-rose-900/20 cursor-pointer disabled:opacity-50"
+                className="flex-1 py-2.5 px-4 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-rose-900/20 cursor-pointer disabled:opacity-50"
               >
                 {deleting ? t("Deleting...") : t("Yes, Delete")}
               </button>
@@ -1085,7 +1043,7 @@ export default function Dashboard() {
 
       {showBatchDeleteModal && (
         <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl p-6 border border-slate-200 text-center space-y-4 animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl p-6 border border-slate-200 text-center space-y-4">
             <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto border border-rose-200">
               <AlertTriangle size={24} />
             </div>
@@ -1098,7 +1056,7 @@ export default function Dashboard() {
             </div>
 
             {deleteError && (
-              <div className="p-2.5 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs text-left">
+              <div className="p-2.5 bg-rose-50 border border-rose-200 text-rose-700 rounded-xl text-xs text-left">
                 {deleteError}
               </div>
             )}
@@ -1116,7 +1074,7 @@ export default function Dashboard() {
                 type="button"
                 onClick={confirmBatchDelete}
                 disabled={deleting}
-                className="flex-1 py-2.5 px-4 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-rose-900/20 cursor-pointer disabled:opacity-50"
+                className="flex-1 py-2.5 px-4 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-rose-900/20 cursor-pointer disabled:opacity-50"
               >
                 {deleting ? t("Deleting...") : t("Yes, Delete All")}
               </button>
@@ -1127,7 +1085,7 @@ export default function Dashboard() {
 
       {importSuccessCount !== null && (
         <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl p-6 border border-slate-200 text-center space-y-4 animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl p-6 border border-slate-200 text-center space-y-4">
             <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto border border-emerald-200">
               <CheckCircle2 size={26} />
             </div>
@@ -1144,7 +1102,7 @@ export default function Dashboard() {
             <button
               type="button"
               onClick={() => setImportSuccessCount(null)}
-              className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-900/20 cursor-pointer"
+              className="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-900/20 cursor-pointer"
             >
               {t("OK")}
             </button>
@@ -1154,7 +1112,7 @@ export default function Dashboard() {
 
       {importErrorMsg !== null && (
         <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl p-6 border border-slate-200 text-center space-y-4 animate-in fade-in zoom-in-95 duration-150">
+          <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl p-6 border border-slate-200 text-center space-y-4">
             <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto border border-rose-200">
               <AlertCircle size={26} />
             </div>
@@ -1169,7 +1127,7 @@ export default function Dashboard() {
             <button
               type="button"
               onClick={() => setImportErrorMsg(null)}
-              className="w-full py-2.5 px-4 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
+              className="w-full py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
             >
               {t("OK")}
             </button>
