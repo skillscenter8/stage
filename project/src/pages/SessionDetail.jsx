@@ -50,6 +50,10 @@ export default function SessionDetail() {
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
 
+  const [participantToDelete, setParticipantToDelete] = useState(null);
+  const [deletingParticipant, setDeletingParticipant] = useState(false);
+  const [participantDeleteError, setParticipantDeleteError] = useState('');
+
   const qrContainerRef = useRef(null);
   const studentFormUrl = `${window.location.origin}/attend/${id}`;
 
@@ -237,42 +241,65 @@ export default function SessionDetail() {
     }
   };
 
-  const getLogoBase64 = (cornerRadius = 10) => {
-  return new Promise((resolve) => {
-    const img = new Image();
-    img.src = logo;
-    img.crossOrigin = 'Anonymous';
-    img.onload = () => {
-      const width = img.width || 60;
-      const height = img.height || 40;
+  const confirmDeleteParticipant = async () => {
+    if (!participantToDelete) return;
 
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
+    setDeletingParticipant(true);
+    setParticipantDeleteError('');
 
-      const ctx = canvas.getContext('2d');
+    try {
+      const { error } = await supabase
+        .from('presences')
+        .delete()
+        .eq('id', participantToDelete.id);
 
-      // Create rounded corner clipping path
-      ctx.beginPath();
-      if (typeof ctx.roundRect === 'function') {
-        ctx.roundRect(0, 0, width, height, cornerRadius);
+      if (error) {
+        setParticipantDeleteError(error.message);
       } else {
-        // Fallback for legacy environments
-        ctx.moveTo(cornerRadius, 0);
-        ctx.arcTo(width, 0, width, height, cornerRadius);
-        ctx.arcTo(width, height, 0, height, cornerRadius);
-        ctx.arcTo(0, height, 0, 0, cornerRadius);
-        ctx.arcTo(0, 0, width, 0, cornerRadius);
-        ctx.closePath();
+        setAttendees((prev) => prev.filter((student) => student.id !== participantToDelete.id));
+        setParticipantToDelete(null);
       }
-      ctx.clip();
+    } catch (err) {
+      setParticipantDeleteError(err.message);
+    } finally {
+      setDeletingParticipant(false);
+    }
+  };
 
-      ctx.drawImage(img, 0, 0, width, height);
-      resolve(canvas.toDataURL('image/png'));
-    };
-    img.onerror = () => resolve(null);
-  });
-};
+  const getLogoBase64 = (cornerRadius = 10) => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.src = logo;
+      img.crossOrigin = 'Anonymous';
+      img.onload = () => {
+        const width = img.width || 60;
+        const height = img.height || 40;
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+
+        const ctx = canvas.getContext('2d');
+
+        ctx.beginPath();
+        if (typeof ctx.roundRect === 'function') {
+          ctx.roundRect(0, 0, width, height, cornerRadius);
+        } else {
+          ctx.moveTo(cornerRadius, 0);
+          ctx.arcTo(width, 0, width, height, cornerRadius);
+          ctx.arcTo(width, height, 0, height, cornerRadius);
+          ctx.arcTo(0, height, 0, 0, cornerRadius);
+          ctx.arcTo(0, 0, width, 0, cornerRadius);
+          ctx.closePath();
+        }
+        ctx.clip();
+
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/png'));
+      };
+      img.onerror = () => resolve(null);
+    });
+  };
 
   const copyDirectLink = () => {
     navigator.clipboard.writeText(studentFormUrl);
@@ -312,6 +339,7 @@ export default function SessionDetail() {
 
     image.src = blobURL;
   };
+
   const exportPDF = async () => {
     const doc = new jsPDF();
     let startY = 15;
@@ -620,14 +648,15 @@ export default function SessionDetail() {
               </div>
             ) : (
               <div className="w-full overflow-x-auto">
-                <table className="w-full table-fixed text-left rtl:text-right text-xs min-w-[600px]">
+                <table className="w-full table-fixed text-left rtl:text-right text-xs min-w-[650px]">
                   <thead className="bg-slate-50/80 text-slate-500 uppercase font-bold border-b border-slate-100 tracking-wider">
                     <tr>
                       <th className="p-4 pl-6 w-[20%]">{t("Full Name")}</th>
-                      <th className="p-4 w-[25%]">{t("Email Address")}</th>
-                      <th className="p-4 w-[18%]">{t("Phone")}</th>
-                      <th className="p-4 w-[15%]">{t("Status / Role")}</th>
-                      <th className="p-4 pr-6 w-[22%]">{t("Reason")}</th>
+                      <th className="p-4 w-[23%]">{t("Email Address")}</th>
+                      <th className="p-4 w-[16%]">{t("Phone")}</th>
+                      <th className="p-4 w-[14%]">{t("Status / Role")}</th>
+                      <th className="p-4 w-[17%]">{t("Reason")}</th>
+                      <th className="p-4 pr-6 w-[10%] text-center">{t("Actions")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-medium">
@@ -651,8 +680,22 @@ export default function SessionDetail() {
                           </span>
                         </td>
 
-                        <td className="p-4 pr-6 text-slate-600 break-words whitespace-normal leading-relaxed">
+                        <td className="p-4 text-slate-600 break-words whitespace-normal leading-relaxed">
                           {student.reason || '—'}
+                        </td>
+
+                        <td className="p-4 pr-6 text-center">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setParticipantDeleteError('');
+                              setParticipantToDelete(student);
+                            }}
+                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors cursor-pointer"
+                            title={t("Delete Participant")}
+                          >
+                            <Trash2 size={16} />
+                          </button>
                         </td>
                       </tr>
                     ))}
@@ -752,6 +795,48 @@ export default function SessionDetail() {
                 className="flex-1 py-2.5 px-4 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-rose-900/20 cursor-pointer disabled:opacity-50"
               >
                 {deleting ? t("Deleting...") : t("Yes, Delete")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {participantToDelete && (
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl p-6 border border-slate-200 text-center space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto border border-rose-200">
+              <AlertTriangle size={24} />
+            </div>
+
+            <div className="space-y-1">
+              <h3 className="text-base font-bold text-slate-900">{t("Delete Participant?")}</h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                {t("Are you sure you want to remove")} <strong className="text-slate-800">"{participantToDelete.full_name || participantToDelete.email}"</strong> {t("from this session?")}
+              </p>
+            </div>
+
+            {participantDeleteError && (
+              <div className="p-2.5 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs text-left">
+                {participantDeleteError}
+              </div>
+            )}
+
+            <div className="flex gap-2.5 justify-center pt-2">
+              <button
+                type="button"
+                onClick={() => setParticipantToDelete(null)}
+                disabled={deletingParticipant}
+                className="flex-1 py-2.5 px-4 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                {t("Cancel")}
+              </button>
+              <button
+                type="button"
+                onClick={confirmDeleteParticipant}
+                disabled={deletingParticipant}
+                className="flex-1 py-2.5 px-4 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-rose-900/20 cursor-pointer disabled:opacity-50"
+              >
+                {deletingParticipant ? t("Deleting...") : t("Yes, Delete")}
               </button>
             </div>
           </div>

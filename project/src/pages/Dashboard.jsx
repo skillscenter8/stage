@@ -23,7 +23,9 @@ import {
   CheckCircle2,
   FileSpreadsheet,
   Upload,
-  Download
+  Download,
+  CheckSquare,
+  Square
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -53,6 +55,8 @@ export default function Dashboard() {
   const [modalError, setModalError] = useState('');
 
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [selectedIds, setSelectedIds] = useState([]);
+  const [showBatchDeleteModal, setShowBatchDeleteModal] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
 
@@ -177,7 +181,35 @@ export default function Dashboard() {
         setDeleteError(error.message);
       } else {
         setFormations((prev) => prev.filter((item) => item.id !== deleteTarget.id));
+        setSelectedIds((prev) => prev.filter((id) => id !== deleteTarget.id));
         setDeleteTarget(null);
+      }
+    } catch (err) {
+      setDeleteError(err.message);
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const confirmBatchDelete = async () => {
+    if (selectedIds.length === 0) return;
+    setDeleting(true);
+    setDeleteError('');
+
+    try {
+      await supabase.from('presences').delete().in('formation_id', selectedIds);
+
+      const { error } = await supabase
+        .from('formations')
+        .delete()
+        .in('id', selectedIds);
+
+      if (error) {
+        setDeleteError(error.message);
+      } else {
+        setFormations((prev) => prev.filter((item) => !selectedIds.includes(item.id)));
+        setSelectedIds([]);
+        setShowBatchDeleteModal(false);
       }
     } catch (err) {
       setDeleteError(err.message);
@@ -486,6 +518,25 @@ export default function Dashboard() {
     setDateFilter('');
   };
 
+  const isAllFilteredSelected = 
+    filteredFormations.length > 0 && 
+    filteredFormations.every((item) => selectedIds.includes(item.id));
+
+  const toggleSelectAll = () => {
+    if (isAllFilteredSelected) {
+      setSelectedIds((prev) => prev.filter((id) => !filteredFormations.some((item) => item.id === id)));
+    } else {
+      const filteredItemIds = filteredFormations.map((item) => item.id);
+      setSelectedIds((prev) => Array.from(new Set([...prev, ...filteredItemIds])));
+    }
+  };
+
+  const toggleSelectId = (id) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800 pb-16">
       <Navbar />
@@ -562,7 +613,7 @@ export default function Dashboard() {
                 }`}
               >
                 <Upload size={14} />
-                <span>{uploadingExcel ? t("Importing...") : t("Import Excel")}</span>
+                <span>{uploadingExcel ? t("Importing...") : t("Importer le fichier Excel")}</span>
                 <input
                   type="file"
                   accept=".xlsx, .xls, .csv"
@@ -577,6 +628,35 @@ export default function Dashboard() {
 
         <div className="bg-white p-3.5 rounded-2xl border border-slate-200 shadow-xs space-y-3">
           <div className="flex flex-col md:flex-row items-center gap-3">
+            {filteredFormations.length > 0 && (
+              <button
+                type="button"
+                onClick={toggleSelectAll}
+                className="inline-flex items-center gap-1.5 px-3 py-2 bg-slate-100 hover:bg-slate-200 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 transition-all cursor-pointer shrink-0"
+              >
+                {isAllFilteredSelected ? (
+                  <CheckSquare size={16} className="text-emerald-600" />
+                ) : (
+                  <Square size={16} className="text-slate-400" />
+                )}
+                <span>{t("Select All")}</span>
+              </button>
+            )}
+
+            {selectedIds.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteError('');
+                  setShowBatchDeleteModal(true);
+                }}
+                className="inline-flex items-center gap-1.5 px-3 py-2 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white rounded-xl text-xs font-semibold transition-all shadow-xs cursor-pointer shrink-0"
+              >
+                <Trash2 size={15} />
+                <span>{t("Delete Selected")} ({selectedIds.length})</span>
+              </button>
+            )}
+
             <div className="relative flex-1 w-full">
               <Search size={18} className="absolute left-3.5 rtl:left-auto rtl:right-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
@@ -703,30 +783,50 @@ export default function Dashboard() {
             {filteredFormations.map((item) => {
               const registerCount = item.presences?.length || 0;
               const hasEnded = isWorkshopEnded(item.date, item.time);
+              const isSelected = selectedIds.includes(item.id);
 
               return (
                 <div
                   key={item.id}
-                  className="bg-white rounded-2xl border border-slate-200 shadow-xs hover:shadow-md hover:border-slate-300 transition-all duration-200 flex flex-col justify-between overflow-hidden"
+                  className={`bg-white rounded-2xl border transition-all duration-200 flex flex-col justify-between overflow-hidden ${
+                    isSelected
+                      ? 'border-emerald-500 ring-2 ring-emerald-500/20 shadow-md'
+                      : 'border-slate-200 shadow-xs hover:shadow-md hover:border-slate-300'
+                  }`}
                 >
                   <div className="p-5 space-y-4">
                     <div className="flex items-start justify-between gap-3">
-                      <div className="space-y-1.5">
-                        {hasEnded ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
-                            <CheckCircle2 size={11} />
-                            {t("Ended")}
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
-                            <Clock size={11} />
-                            {t("Upcoming")}
-                          </span>
-                        )}
+                      <div className="flex items-start gap-2.5">
+                        <button
+                          type="button"
+                          onClick={() => toggleSelectId(item.id)}
+                          className="pt-0.5 text-slate-400 hover:text-emerald-600 transition-colors cursor-pointer shrink-0"
+                          title={isSelected ? t("Deselect") : t("Select")}
+                        >
+                          {isSelected ? (
+                            <CheckSquare size={18} className="text-emerald-600" />
+                          ) : (
+                            <Square size={18} className="text-slate-300 hover:text-slate-500" />
+                          )}
+                        </button>
 
-                        <h2 className="text-base font-bold text-slate-900 capitalize leading-snug line-clamp-2">
-                          {item.title || t('Untitled Workshop')}
-                        </h2>
+                        <div className="space-y-1.5">
+                          {hasEnded ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                              <CheckCircle2 size={11} />
+                              {t("Ended")}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                              <Clock size={11} />
+                              {t("Upcoming")}
+                            </span>
+                          )}
+
+                          <h2 className="text-base font-bold text-slate-900 capitalize leading-snug line-clamp-2">
+                            {item.title || t('Untitled Workshop')}
+                          </h2>
+                        </div>
                       </div>
 
                       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-700 font-bold text-xs rounded-full border border-emerald-200/60 shrink-0">
@@ -977,6 +1077,48 @@ export default function Dashboard() {
                 className="flex-1 py-2.5 px-4 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-rose-900/20 cursor-pointer disabled:opacity-50"
               >
                 {deleting ? t("Deleting...") : t("Yes, Delete")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showBatchDeleteModal && (
+        <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl p-6 border border-slate-200 text-center space-y-4 animate-in fade-in zoom-in-95 duration-150">
+            <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto border border-rose-200">
+              <AlertTriangle size={24} />
+            </div>
+
+            <div className="space-y-1">
+              <h3 className="text-base font-bold text-slate-900">{t("Delete Selected Workshops?")}</h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                {t("Are you sure you want to delete")} <strong className="text-slate-800">{selectedIds.length}</strong> {t("selected workshop(s)")}? {t("This action cannot be undone.")}
+              </p>
+            </div>
+
+            {deleteError && (
+              <div className="p-2.5 bg-red-50 border border-red-200 text-red-700 rounded-xl text-xs text-left">
+                {deleteError}
+              </div>
+            )}
+
+            <div className="flex gap-2.5 justify-center pt-2">
+              <button
+                type="button"
+                onClick={() => setShowBatchDeleteModal(false)}
+                disabled={deleting}
+                className="flex-1 py-2.5 px-4 border border-slate-200 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+              >
+                {t("Cancel")}
+              </button>
+              <button
+                type="button"
+                onClick={confirmBatchDelete}
+                disabled={deleting}
+                className="flex-1 py-2.5 px-4 bg-rose-600 hover:bg-rose-700 active:bg-rose-800 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-rose-900/20 cursor-pointer disabled:opacity-50"
+              >
+                {deleting ? t("Deleting...") : t("Yes, Delete All")}
               </button>
             </div>
           </div>
