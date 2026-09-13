@@ -3,11 +3,13 @@ import { useParams } from 'react-router-dom';
 import { supabase } from '../config/supabaseClient';
 import logo from '../logo/logo.svg';
 import LanguageSelector from './LanguageSelector';
+import reglementsPdf from '../reglements.pdf';
 import { 
   User, 
   Mail, 
   Phone, 
   Briefcase, 
+  Building2,
   FileText, 
   CheckCircle2, 
   Sparkles, 
@@ -16,7 +18,8 @@ import {
   Calendar,
   MapPin,
   Info,
-  Clock
+  Clock,
+  Camera
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -41,6 +44,7 @@ export default function Attend() {
   const [phone, setPhone] = useState('');
   const [status, setStatus] = useState('');
   const [reason, setReason] = useState('');
+  const [allowPhoto, setAllowPhoto] = useState(true);
 
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -211,16 +215,17 @@ export default function Attend() {
     setSubmitting(true);
     setErrorMsg('');
 
-    const { error } = await supabase.from('presences').insert([
-      {
-        formation_id: workshop.id,
-        full_name: fullName.trim(),
-        email: email.trim(),
-        phone: phone.trim(),
-        status: status.trim(),
-        reason: reason.trim(),
-      },
-    ]);
+    const presencePayload = {
+      formation_id: workshop.id,
+      full_name: fullName.trim(),
+      email: email.trim(),
+      phone: phone.trim(),
+      status: status.trim(),
+      reason: reason.trim(),
+      allow_photo: allowPhoto,
+    };
+
+    const { error } = await supabase.from('presences').insert([presencePayload]);
 
     if (error) {
       setErrorMsg(error.message);
@@ -239,6 +244,7 @@ export default function Attend() {
               phone: phone.trim(),
               status: status.trim(),
               reason: reason.trim(),
+              allow_photo: allowPhoto ? 'Oui' : 'Non',
               created_at: new Date().toISOString(),
             }),
           });
@@ -391,7 +397,6 @@ export default function Attend() {
                 required
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                placeholder="Ex: Mohamed Amine"
                 className="w-full pl-10 rtl:pl-3.5 rtl:pr-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-600/10 transition-all text-slate-900"
               />
             </div>
@@ -408,41 +413,40 @@ export default function Attend() {
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="Ex: amine@example.com"
                 className="w-full pl-10 rtl:pl-3.5 rtl:pr-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-600/10 transition-all text-slate-900"
               />
             </div>
           </div>
 
-          <div>
-            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-              {t("Phone Number")}
-            </label>
-            <div className="relative">
-              <Phone size={16} className="absolute left-3.5 rtl:left-auto rtl:right-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="tel"
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="Ex: 0550000000"
-                className="w-full pl-10 rtl:pl-3.5 rtl:pr-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-600/10 transition-all text-slate-900"
-              />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                {t("Phone Number")}
+              </label>
+              <div className="relative">
+                <Phone size={16} className="absolute left-3.5 rtl:left-auto rtl:right-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  className="w-full pl-10 rtl:pl-3.5 rtl:pr-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-600/10 transition-all text-slate-900"
+                />
+              </div>
             </div>
-          </div>
 
-          <div>
-            <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-              {t("Status / Function")}
-            </label>
-            <div className="relative">
-              <Briefcase size={16} className="absolute left-3.5 rtl:left-auto rtl:right-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
-              <input
-                type="text"
-                value={status}
-                onChange={(e) => setStatus(e.target.value)}
-                placeholder="Ex: Engineer / Student"
-                className="w-full pl-10 rtl:pl-3.5 rtl:pr-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-600/10 transition-all text-slate-900"
-              />
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wider mb-1.5">
+                {t("Status / Function")}
+              </label>
+              <div className="relative">
+                <Briefcase size={16} className="absolute left-3.5 rtl:left-auto rtl:right-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="text"
+                  value={status}
+                  onChange={(e) => setStatus(e.target.value)}
+                  className="w-full pl-10 rtl:pl-3.5 rtl:pr-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-600/10 transition-all text-slate-900"
+                />
+              </div>
             </div>
           </div>
 
@@ -453,13 +457,58 @@ export default function Attend() {
             <div className="relative">
               <FileText size={16} className="absolute left-3.5 rtl:left-auto rtl:right-3.5 top-3 text-slate-400" />
               <textarea
-                rows={3}
+                rows={2}
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                placeholder="..."
                 className="w-full pl-10 rtl:pl-3.5 rtl:pr-10 pr-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-xs focus:outline-none focus:border-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-600/10 transition-all text-slate-900 resize-none"
               />
             </div>
+          </div>
+
+          {/* Photo Permission Boolean Question Section */}
+          <div className="p-4 bg-slate-50 border border-slate-200/80 rounded-2xl space-y-2.5">
+            <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+              <Camera size={14} className="text-emerald-600 shrink-0" />
+              {t("Pouvons-nous vous prendre en photo ?")}
+            </label>
+            
+            <div className="grid grid-cols-2 gap-3 pt-1">
+              <button
+                type="button"
+                onClick={() => setAllowPhoto(true)}
+                className={`py-2 px-4 rounded-xl text-xs font-bold transition-all border ${
+                  allowPhoto
+                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                {t("Oui")}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setAllowPhoto(false)}
+                className={`py-2 px-4 rounded-xl text-xs font-bold transition-all border ${
+                  !allowPhoto
+                    ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                    : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                {t("Non")}
+              </button>
+            </div>
+
+            <p className="text-[11px] text-slate-500 text-center pt-1">
+              Vous pouvez consulter les règlements{' '}
+              <a
+                href={reglementsPdf}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-emerald-600 hover:underline font-semibold"
+              >
+                ici
+              </a>
+            </p>
           </div>
 
           <button

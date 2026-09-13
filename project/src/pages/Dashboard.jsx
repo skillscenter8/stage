@@ -341,7 +341,6 @@ export default function Dashboard() {
   const getFieldValue = (row, keywords) => {
     const keys = Object.keys(row);
 
-    // First pass: Exact match in priority order of keywords
     for (const kw of keywords) {
       const cleanKw = kw.trim().toLowerCase();
       for (const key of keys) {
@@ -352,7 +351,6 @@ export default function Dashboard() {
       }
     }
 
-    // Second pass: Substring match in priority order of keywords
     for (const kw of keywords) {
       const cleanKw = kw.trim().toLowerCase();
       for (const key of keys) {
@@ -388,7 +386,6 @@ export default function Dashboard() {
 
       const { data: { user } } = await supabase.auth.getUser();
 
-      // Priority keyword mapping
       const titleKeywords = ['thématique', 'thematique', 'intitulé de la session', 'title', 'titre', 'nom', 'atelier', 'formation', 'subject', 'sujet', 'name'];
       const dateKeywords = ['date', 'jour', 'date_session', 'session_date'];
       const timeKeywords = ['heure de début', 'heure de debut', 'time', 'heure', 'horaire', 'horaires', 'start_time', 'time_start', 'debut', 'début'];
@@ -439,7 +436,9 @@ export default function Dashboard() {
       return `${parsed.getDate()} ${ALGERIAN_ARABIC_MONTHS[parsed.getMonth()]} ${parsed.getFullYear()}`;
     }
 
-    return parsed.toLocaleDateString('fr-FR', {
+    const locale = lang.startsWith('en') ? 'en-US' : 'fr-FR';
+
+    return parsed.toLocaleDateString(locale, {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
@@ -473,6 +472,14 @@ export default function Dashboard() {
   });
 
   const isAnyFilterActive = searchTerm !== '' || statusFilter !== 'all' || dateFilter !== '';
+
+  const getActiveFilterLabel = () => {
+    if (searchTerm) return searchTerm;
+    if (statusFilter === 'upcoming') return t('Upcoming');
+    if (statusFilter === 'ended') return t('Ended');
+    if (dateFilter) return dateFilter;
+    return '';
+  };
 
   const clearAllFilters = () => {
     setSearchTerm('');
@@ -726,7 +733,7 @@ export default function Dashboard() {
             </h3>
             <p className="text-xs text-slate-500 mt-1 max-w-sm">
               {isAnyFilterActive
-                ? `${t('No results match')} "${searchTerm || statusFilter || dateFilter}".`
+                ? `${t('No results match')} "${getActiveFilterLabel()}".`
                 : t('Click "Add New Formation" above to create your first session register.')}
             </p>
             {isAnyFilterActive && (

@@ -24,7 +24,8 @@ import {
   AlertTriangle,
   Clock,
   CheckCircle2,
-  Info
+  Info,
+  Camera
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -389,12 +390,13 @@ export default function SessionDetail() {
       student.full_name || 'N/A',
       student.email || 'N/A',
       student.phone || 'N/A',
-      student.status || 'Participant'
+      student.status || 'Participant',
+      student.allow_photo !== false ? 'Oui' : 'Non'
     ]);
 
     autoTable(doc, {
       startY: startY + 4,
-      head: [['#', 'Nom Complet', 'Adresse e-mail', 'Téléphone', 'Statut / Rôle']],
+      head: [['#', 'Nom Complet', 'Adresse e-mail', 'Téléphone', 'Statut / Rôle', 'Photo']],
       body: tableRows,
       theme: 'grid',
       headStyles: {
@@ -627,7 +629,7 @@ export default function SessionDetail() {
               </div>
             ) : (
               <div className="w-full overflow-x-auto">
-                <table className="w-full text-left rtl:text-right text-xs min-w-[650px]">
+                <table className="w-full text-left rtl:text-right text-xs min-w-[700px]">
                   <thead className="bg-slate-50/80 text-slate-500 uppercase font-bold border-b border-slate-100 tracking-wider">
                     <tr>
                       <th className="p-4 pl-6">{t("Full Name")}</th>
@@ -635,6 +637,7 @@ export default function SessionDetail() {
                       <th className="p-4">{t("Phone")}</th>
                       <th className="p-4">{t("Status / Role")}</th>
                       <th className="p-4">{t("Reason")}</th>
+                      <th className="p-4 text-center">{t("Photo")}</th>
                       <th className="p-4 pr-6 text-center">{t("Actions")}</th>
                     </tr>
                   </thead>
@@ -652,6 +655,19 @@ export default function SessionDetail() {
                           </span>
                         </td>
                         <td className="p-4 text-slate-600 max-w-xs">{student.reason || '—'}</td>
+                        <td className="p-4 text-center">
+                          {student.allow_photo !== false ? (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
+                              <Camera size={12} />
+                              {t("Oui")}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200/60">
+                              <Camera size={12} />
+                              {t("Non")}
+                            </span>
+                          )}
+                        </td>
                         <td className="p-4 pr-6 text-center">
                           <button
                             onClick={() => setParticipantToDelete(student)}
