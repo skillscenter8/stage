@@ -499,14 +499,14 @@ export default function Attend() {
             </div>
 
             <p className="text-[11px] text-slate-500 text-center pt-1">
-              Vous pouvez consulter les règlements{' '}
+              {t("You can view the regulations")}{' '}
               <a
                 href={reglementsPdf}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-emerald-600 hover:underline font-semibold"
               >
-                ici
+                {t("here")}
               </a>
             </p>
           </div>
