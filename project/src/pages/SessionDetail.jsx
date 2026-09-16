@@ -645,33 +645,35 @@ export default function SessionDetail() {
               </div>
             ) : (
               <div className="w-full overflow-x-auto">
-                <table className="w-full text-left rtl:text-right text-xs min-w-[700px]">
+                <table className="w-full text-left rtl:text-right text-xs">
                   <thead className="bg-slate-50/80 text-slate-500 uppercase font-bold border-b border-slate-100 tracking-wider">
                     <tr>
-                      <th className="p-4 pl-6">{t("Full Name")}</th>
-                      <th className="p-4">{t("Email Address")}</th>
-                      <th className="p-4">{t("Phone")}</th>
-                      <th className="p-4">{t("Status / Role")}</th>
-                      <th className="p-4">{t("Reason")}</th>
-                      <th className="p-4 text-center">{t("Photo")}</th>
-                      {isAdmin && <th className="p-4 pr-6 text-center">{t("Actions")}</th>}
+                      <th className="p-4 pl-6 min-w-[150px]">{t("Full Name")}</th>
+                      <th className="p-4 min-w-[180px]">{t("Email Address")}</th>
+                      <th className="p-4 min-w-[140px]">{t("Phone")}</th>
+                      <th className="p-4 min-w-[120px]">{t("Status / Role")}</th>
+                      <th className="p-4 text-center whitespace-nowrap min-w-[90px]">{t("Photo")}</th>
+                      {isAdmin && <th className="p-4 pr-6 text-center whitespace-nowrap min-w-[80px]">{t("Actions")}</th>}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
                     {filteredAttendees.map((student) => (
                       <tr key={student.id} className="hover:bg-slate-50/80 transition-colors group">
-                        <td className="p-4 pl-6 font-bold text-slate-900 group-hover:text-emerald-700 transition-colors">
+                        <td className="p-4 pl-6 font-bold text-slate-900 group-hover:text-emerald-700 transition-colors break-words max-w-[180px]">
                           {student.full_name || '—'}
                         </td>
-                        <td className="p-4 text-slate-600">{student.email || '—'}</td>
-                        <td className="p-4 text-slate-600 whitespace-nowrap">{student.phone || '—'}</td>
-                        <td className="p-4">
+                        <td className="p-4 text-slate-600 break-all max-w-[200px]">
+                          {student.email || '—'}
+                        </td>
+                        <td className="p-4 text-slate-600 break-all max-w-[150px]">
+                          {student.phone || '—'}
+                        </td>
+                        <td className="p-4 whitespace-nowrap">
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
                             {student.status || '—'}
                           </span>
                         </td>
-                        <td className="p-4 text-slate-600 max-w-xs">{student.reason || '—'}</td>
-                        <td className="p-4 text-center">
+                        <td className="p-4 text-center whitespace-nowrap">
                           {student.allow_photo !== false ? (
                             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
                               <Camera size={12} />
@@ -685,7 +687,7 @@ export default function SessionDetail() {
                           )}
                         </td>
                         {isAdmin && (
-                          <td className="p-4 pr-6 text-center">
+                          <td className="p-4 pr-6 text-center whitespace-nowrap">
                             <button
                               onClick={() => setParticipantToDelete(student)}
                               className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
