@@ -34,6 +34,7 @@ const ALGERIAN_ARABIC_MONTHS = [
 
 export default function Dashboard() {
   const { t, i18n } = useTranslation();
+  const [isAdmin, setIsAdmin] = useState(false);
   const [formations, setFormations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState(null);
@@ -64,11 +65,18 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchFormations();
+    checkUserRole();
   }, []);
 
   useEffect(() => {
     document.title = `${t("Dashboard")} | Algérie Télécom`;
   }, [i18n.language, t]);
+
+  const checkUserRole = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    const userRole = user?.user_metadata?.role;
+    setIsAdmin(userRole === 'admin');
+  };
 
   const fetchFormations = async () => {
     setLoading(true);
@@ -154,12 +162,21 @@ export default function Dashboard() {
   const upcomingCount = totalCount - endedCount;
 
   const confirmDeleteFormation = async () => {
-    if (!deleteTarget) return;
+    if (!deleteTarget || !isAdmin) return;
     setDeleting(true);
     setDeleteError('');
 
     try {
-      await supabase.from('presences').delete().eq('formation_id', deleteTarget.id);
+      const { error: presencesError } = await supabase
+        .from('presences')
+        .delete()
+        .eq('formation_id', deleteTarget.id);
+
+      if (presencesError) {
+        setDeleteError(presencesError.message);
+        setDeleting(false);
+        return;
+      }
 
       const { error } = await supabase
         .from('formations')
@@ -181,12 +198,21 @@ export default function Dashboard() {
   };
 
   const confirmBatchDelete = async () => {
-    if (selectedIds.length === 0) return;
+    if (selectedIds.length === 0 || !isAdmin) return;
     setDeleting(true);
     setDeleteError('');
 
     try {
-      await supabase.from('presences').delete().in('formation_id', selectedIds);
+      const { error: presencesError } = await supabase
+        .from('presences')
+        .delete()
+        .in('formation_id', selectedIds);
+
+      if (presencesError) {
+        setDeleteError(presencesError.message);
+        setDeleting(false);
+        return;
+      }
 
       const { error } = await supabase
         .from('formations')
@@ -209,6 +235,7 @@ export default function Dashboard() {
 
   const handleCreateFormation = async (e) => {
     e.preventDefault();
+    if (!isAdmin) return;
     setModalError('');
 
     if (
@@ -224,7 +251,7 @@ export default function Dashboard() {
     }
 
     if (date) {
-      const selectedYear = new Date(date).getFullYear();
+      const selectedYear = Number(date.slice(0, 4));
       if (isNaN(selectedYear) || selectedYear < 2024 || selectedYear > 2035) {
         setModalError(t('Please select a valid date between 2024 and 2035.'));
         return;
@@ -365,6 +392,7 @@ export default function Dashboard() {
   };
 
   const handleExcelImport = async (e) => {
+    if (!isAdmin) return;
     const file = e.target.files?.[0];
     if (!file) return;
 
@@ -386,7 +414,6 @@ export default function Dashboard() {
 
       const { data: { user } } = await supabase.auth.getUser();
 
-      // Updated keywords: Prioritize "intitulé de la session" for title and exclude "thématique"
       const titleKeywords = ['intitulé de la session', 'intitule de la session', 'intitulé', 'intitule', 'title', 'titre', 'nom', 'atelier', 'formation', 'subject', 'sujet', 'name'];
       const dateKeywords = ['date', 'jour', 'date_session', 'session_date'];
       const timeKeywords = ['heure de début', 'heure de debut', 'time', 'heure', 'horaire', 'horaires', 'start_time', 'time_start', 'debut', 'début'];
@@ -428,7 +455,15 @@ export default function Dashboard() {
 
   const formatDateDisplay = (dateString) => {
     if (!dateString) return t('Date TBD');
-    const parsed = new Date(dateString);
+
+    let parsed;
+    if (typeof dateString === 'string' && /^\d{4}-\d{2}-\d{2}/.test(dateString)) {
+      const parts = dateString.slice(0, 10).split('-').map(Number);
+      parsed = new Date(parts[0], parts[1] - 1, parts[2]);
+    } else {
+      parsed = new Date(dateString);
+    }
+
     if (isNaN(parsed.getTime())) return t('Date TBD');
 
     const lang = i18n.language || 'fr';
@@ -530,22 +565,24 @@ export default function Dashboard() {
           </div>
 
           <div className="flex flex-col items-start sm:items-end justify-between gap-4 w-full lg:w-auto shrink-0 pt-4 lg:pt-0 border-t lg:border-t-0 border-slate-100">
-            <button
-              onClick={() => {
-                setModalError('');
-                setTitle('');
-                setDate('');
-                setTime('');
-                setTrainerName('');
-                setLocation('');
-                setDescription('');
-                setShowCreateModal(true);
-              }}
-              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold px-4 py-2.5 rounded-xl text-xs transition-all shadow-xs cursor-pointer"
-            >
-              <Plus size={16} />
-              <span>{t("Add New Formation")}</span>
-            </button>
+            {isAdmin && (
+              <button
+                onClick={() => {
+                  setModalError('');
+                  setTitle('');
+                  setDate('');
+                  setTime('');
+                  setTrainerName('');
+                  setLocation('');
+                  setDescription('');
+                  setShowCreateModal(true);
+                }}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white font-bold px-4 py-2.5 rounded-xl text-xs transition-all shadow-xs cursor-pointer"
+              >
+                <Plus size={16} />
+                <span>{t("Add New Formation")}</span>
+              </button>
+            )}
 
             <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto justify-start sm:justify-end">
               <div className="inline-flex items-center gap-1.5 bg-slate-100 border border-slate-200 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700">
@@ -563,40 +600,44 @@ export default function Dashboard() {
                 <span>{t("Ended")}: <strong className="text-slate-800">{endedCount}</strong></span>
               </div>
 
-              <div className="h-4 w-px bg-slate-200 mx-1 hidden sm:block" />
+              {isAdmin && (
+                <>
+                  <div className="h-4 w-px bg-slate-200 mx-1 hidden sm:block" />
 
-              <a
-                href="https://docs.google.com/spreadsheets/d/1tgTz4Z9GHGPs_E8MyzmcENCb82wItINFNupCeUn86iY/edit?gid=1526140983#gid=1526140983"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold px-3 py-1.5 rounded-xl text-xs transition-all shadow-xs cursor-pointer no-underline"
-              >
-                <FileSpreadsheet size={14} />
-                <span>Google Sheets</span>
-              </a>
+                  <a
+                    href="https://docs.google.com/spreadsheets/d/1tgTz4Z9GHGPs_E8MyzmcENCb82wItINFNupCeUn86iY/edit?gid=1526140983#gid=1526140983"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center gap-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-semibold px-3 py-1.5 rounded-xl text-xs transition-all shadow-xs cursor-pointer no-underline"
+                  >
+                    <FileSpreadsheet size={14} />
+                    <span>Google Sheets</span>
+                  </a>
 
-              <label
-                className={`inline-flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold px-3 py-1.5 rounded-xl text-xs transition-all shadow-xs cursor-pointer ${
-                  uploadingExcel ? 'opacity-60 pointer-events-none' : ''
-                }`}
-              >
-                <Upload size={14} />
-                <span>{uploadingExcel ? t("Importing...") : t("Importer le fichier Excel")}</span>
-                <input
-                  type="file"
-                  accept=".xlsx, .xls, .csv"
-                  onChange={handleExcelImport}
-                  className="hidden"
-                  disabled={uploadingExcel}
-                />
-              </label>
+                  <label
+                    className={`inline-flex items-center justify-center gap-1.5 bg-slate-900 hover:bg-slate-800 text-white font-semibold px-3 py-1.5 rounded-xl text-xs transition-all shadow-xs cursor-pointer ${
+                      uploadingExcel ? 'opacity-60 pointer-events-none' : ''
+                    }`}
+                  >
+                    <Upload size={14} />
+                    <span>{uploadingExcel ? t("Importing...") : t("Importer le fichier Excel")}</span>
+                    <input
+                      type="file"
+                      accept=".xlsx, .xls, .csv"
+                      onChange={handleExcelImport}
+                      className="hidden"
+                      disabled={uploadingExcel}
+                    />
+                  </label>
+                </>
+              )}
             </div>
           </div>
         </div>
 
         <div className="bg-white p-3.5 rounded-2xl border border-slate-200/80 shadow-xs space-y-3">
           <div className="flex flex-col md:flex-row items-center gap-3">
-            {filteredFormations.length > 0 && (
+            {isAdmin && filteredFormations.length > 0 && (
               <button
                 type="button"
                 onClick={toggleSelectAll}
@@ -611,7 +652,7 @@ export default function Dashboard() {
               </button>
             )}
 
-            {selectedIds.length > 0 && (
+            {isAdmin && selectedIds.length > 0 && (
               <button
                 type="button"
                 onClick={() => {
@@ -735,7 +776,7 @@ export default function Dashboard() {
             <p className="text-xs text-slate-500 mt-1 max-w-sm">
               {isAnyFilterActive
                 ? `${t('No results match')} "${getActiveFilterLabel()}".`
-                : t('Click "Add New Formation" above to create your first session register.')}
+                : t('No workshops found in the register.')}
             </p>
             {isAnyFilterActive && (
               <button
@@ -765,17 +806,19 @@ export default function Dashboard() {
                   <div className="p-5 space-y-4">
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-start gap-2.5">
-                        <button
-                          type="button"
-                          onClick={() => toggleSelectId(item.id)}
-                          className="pt-0.5 text-slate-400 hover:text-emerald-600 transition-colors cursor-pointer shrink-0"
-                        >
-                          {isSelected ? (
-                            <CheckSquare size={18} className="text-emerald-600" />
-                          ) : (
-                            <Square size={18} className="text-slate-300 hover:text-slate-500" />
-                          )}
-                        </button>
+                        {isAdmin && (
+                          <button
+                            type="button"
+                            onClick={() => toggleSelectId(item.id)}
+                            className="pt-0.5 text-slate-400 hover:text-emerald-600 transition-colors cursor-pointer shrink-0"
+                          >
+                            {isSelected ? (
+                              <CheckSquare size={18} className="text-emerald-600" />
+                            ) : (
+                              <Square size={18} className="text-slate-300 hover:text-slate-500" />
+                            )}
+                          </button>
+                        )}
 
                         <div className="space-y-1.5">
                           {hasEnded ? (
@@ -857,15 +900,17 @@ export default function Dashboard() {
                       <span>{t("View Workshop")}</span>
                     </Link>
 
-                    <button
-                      onClick={() => {
-                        setDeleteError('');
-                        setDeleteTarget({ id: item.id, title: item.title });
-                      }}
-                      className="inline-flex items-center justify-center p-2.5 rounded-xl text-xs font-semibold text-rose-600 bg-rose-50 hover:bg-rose-600 hover:text-white transition-colors duration-200 cursor-pointer border border-rose-200/80 shrink-0"
-                    >
-                      <Trash2 size={15} />
-                    </button>
+                    {isAdmin && (
+                      <button
+                        onClick={() => {
+                          setDeleteError('');
+                          setDeleteTarget({ id: item.id, title: item.title });
+                        }}
+                        className="inline-flex items-center justify-center p-2.5 rounded-xl text-xs font-semibold text-rose-600 bg-rose-50 hover:bg-rose-600 hover:text-white transition-colors duration-200 cursor-pointer border border-rose-200/80 shrink-0"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    )}
                   </div>
                 </div>
               );
@@ -874,7 +919,7 @@ export default function Dashboard() {
         )}
       </div>
 
-      {showCreateModal && (
+      {showCreateModal && isAdmin && (
         <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 overflow-y-auto">
           <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden relative border border-slate-200 my-auto">
             <div className="bg-slate-900 p-5 text-white flex items-center justify-between">
@@ -1007,7 +1052,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {deleteTarget && (
+      {deleteTarget && isAdmin && (
         <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl p-6 border border-slate-200 text-center space-y-4">
             <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto border border-rose-200">
@@ -1049,7 +1094,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {showBatchDeleteModal && (
+      {showBatchDeleteModal && isAdmin && (
         <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl p-6 border border-slate-200 text-center space-y-4">
             <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto border border-rose-200">
@@ -1091,7 +1136,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {importSuccessCount !== null && (
+      {importSuccessCount !== null && isAdmin && (
         <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl p-6 border border-slate-200 text-center space-y-4">
             <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto border border-emerald-200">
@@ -1118,7 +1163,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {importErrorMsg !== null && (
+      {importErrorMsg !== null && isAdmin && (
         <div className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs flex items-center justify-center p-4 z-50">
           <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl p-6 border border-slate-200 text-center space-y-4">
             <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto border border-rose-200">

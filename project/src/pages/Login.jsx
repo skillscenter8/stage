@@ -23,7 +23,7 @@ export default function Login() {
     setLoading(true);
     setErrorMsg('');
 
-    const { error } = await supabase.auth.signInWithPassword({
+    const { data, error } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -31,7 +31,7 @@ export default function Login() {
     if (error) {
       setErrorMsg(error.message);
       setLoading(false);
-    } else {
+    } else if (data?.user) {
       navigate('/dashboard');
     }
   };
@@ -106,7 +106,7 @@ export default function Login() {
               </>
             ) : (
               <>
-                <span>{t("Sign In To Admin Portal")}</span>
+                <span>{t("Sign In To Portal")}</span>
                 <ArrowRight size={16} className="rtl:rotate-180" />
               </>
             )}

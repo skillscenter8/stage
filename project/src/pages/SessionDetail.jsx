@@ -43,6 +43,7 @@ export default function SessionDetail() {
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isAdmin, setIsAdmin] = useState(false);
 
   const [showQRModal, setShowQRModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -57,6 +58,7 @@ export default function SessionDetail() {
   const studentFormUrl = `${window.location.origin}/attend/${id}`;
 
   useEffect(() => {
+    checkUserRole();
     fetchSessionData();
   }, [id]);
 
@@ -67,6 +69,25 @@ export default function SessionDetail() {
       document.title = `${t("Session Detail")} | Algérie Télécom`;
     }
   }, [workshop, i18n.language, t]);
+
+  const checkUserRole = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setIsAdmin(false);
+      return;
+    }
+
+    const userEmail = user.email?.toLowerCase().trim();
+    const userRole = user.user_metadata?.role;
+
+    if (userEmail === 'skillscenter12@gmail.com') {
+      setIsAdmin(false);
+    } else if (userEmail === 'skillscenter8@gmail.com' || userRole === 'admin') {
+      setIsAdmin(true);
+    } else {
+      setIsAdmin(false);
+    }
+  };
 
   const fetchSessionData = async () => {
     setLoading(true);
@@ -553,32 +574,28 @@ export default function SessionDetail() {
               <span>{t("Show QR")}</span>
             </button>
 
-            <button
-              onClick={downloadQRCode}
-              className="inline-flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-white font-semibold px-4 py-2 rounded-xl text-xs transition-all cursor-pointer"
-            >
-              <Download size={14} />
-              <span>{t("Save QR")}</span>
-            </button>
+            {isAdmin && (
+              <button
+                onClick={exportPDF}
+                className="inline-flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white font-bold px-4 py-2 rounded-xl text-xs transition-all shadow-xs cursor-pointer"
+              >
+                <FileText size={14} />
+                <span>{t("Export PDF")}</span>
+              </button>
+            )}
 
-            <button
-              onClick={exportPDF}
-              className="inline-flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white font-bold px-4 py-2 rounded-xl text-xs transition-all shadow-xs cursor-pointer"
-            >
-              <FileText size={14} />
-              <span>{t("Export PDF")}</span>
-            </button>
-
-            <button
-              onClick={() => {
-                setDeleteError('');
-                setShowDeleteModal(true);
-              }}
-              className="inline-flex items-center gap-2 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white font-bold px-4 py-2 rounded-xl text-xs transition-all border border-rose-200/80 cursor-pointer"
-            >
-              <Trash2 size={14} />
-              <span>{t("Delete")}</span>
-            </button>
+            {isAdmin && (
+              <button
+                onClick={() => {
+                  setDeleteError('');
+                  setShowDeleteModal(true);
+                }}
+                className="inline-flex items-center gap-2 bg-rose-50 hover:bg-rose-600 text-rose-600 hover:text-white font-bold px-4 py-2 rounded-xl text-xs transition-all border border-rose-200/80 cursor-pointer"
+              >
+                <Trash2 size={14} />
+                <span>{t("Delete")}</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -637,7 +654,7 @@ export default function SessionDetail() {
                       <th className="p-4">{t("Status / Role")}</th>
                       <th className="p-4">{t("Reason")}</th>
                       <th className="p-4 text-center">{t("Photo")}</th>
-                      <th className="p-4 pr-6 text-center">{t("Actions")}</th>
+                      {isAdmin && <th className="p-4 pr-6 text-center">{t("Actions")}</th>}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
@@ -667,14 +684,16 @@ export default function SessionDetail() {
                             </span>
                           )}
                         </td>
-                        <td className="p-4 pr-6 text-center">
-                          <button
-                            onClick={() => setParticipantToDelete(student)}
-                            className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-                          >
-                            <Trash2 size={15} />
-                          </button>
-                        </td>
+                        {isAdmin && (
+                          <td className="p-4 pr-6 text-center">
+                            <button
+                              onClick={() => setParticipantToDelete(student)}
+                              className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                            >
+                              <Trash2 size={15} />
+                            </button>
+                          </td>
+                        )}
                       </tr>
                     ))}
                   </tbody>
