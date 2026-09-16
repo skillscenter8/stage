@@ -386,12 +386,13 @@ export default function Dashboard() {
 
       const { data: { user } } = await supabase.auth.getUser();
 
-      const titleKeywords = ['thématique', 'thematique', 'intitulé de la session', 'title', 'titre', 'nom', 'atelier', 'formation', 'subject', 'sujet', 'name'];
+      // Updated keywords: Prioritize "intitulé de la session" for title and exclude "thématique"
+      const titleKeywords = ['intitulé de la session', 'intitule de la session', 'intitulé', 'intitule', 'title', 'titre', 'nom', 'atelier', 'formation', 'subject', 'sujet', 'name'];
       const dateKeywords = ['date', 'jour', 'date_session', 'session_date'];
       const timeKeywords = ['heure de début', 'heure de debut', 'time', 'heure', 'horaire', 'horaires', 'start_time', 'time_start', 'debut', 'début'];
       const trainerKeywords = ['formateur', 'trainer', 'instructor', 'animateur', 'teacher', 'enseignant'];
       const locationKeywords = ['salle', 'location', 'lieu', 'room', 'place', 'adresse'];
-      const descKeywords = ["description de l'activité", "description de l'activite", 'description', 'desc', 'détails', 'details', 'summary', 'about'];
+      const descKeywords = ["description de l'activité", "description de l'activite", 'thématique', 'thematique', 'description', 'desc', 'détails', 'details', 'summary', 'about'];
 
       const formattedRows = rawData
         .filter((row) => Boolean(getFieldValue(row, titleKeywords)))
