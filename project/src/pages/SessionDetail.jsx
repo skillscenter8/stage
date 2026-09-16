@@ -390,13 +390,12 @@ export default function SessionDetail() {
       student.full_name || 'N/A',
       student.email || 'N/A',
       student.phone || 'N/A',
-      student.status || 'Participant',
-      student.allow_photo !== false ? 'Oui' : 'Non'
+      student.status || 'Participant'
     ]);
 
     autoTable(doc, {
       startY: startY + 4,
-      head: [['#', 'Nom Complet', 'Adresse e-mail', 'Téléphone', 'Statut / Rôle', 'Photo']],
+      head: [['#', 'Nom Complet', 'Adresse e-mail', 'Téléphone', 'Statut / Rôle']],
       body: tableRows,
       theme: 'grid',
       headStyles: {
