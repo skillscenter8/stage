@@ -101,11 +101,32 @@ export default function Dashboard() {
 
   const formatTimeDisplay = (timeStr) => {
     if (!timeStr) return '';
-    const match = String(timeStr).match(/(\d{1,2}):(\d{2})/);
-    if (match) {
-      return `${match[1].padStart(2, '0')}:${match[2]}`;
+    const str = String(timeStr).trim();
+
+    // Handles French format: "9h", "13h40", "09h00", "9H"
+    const hMatch = str.match(/^(\d{1,2})\s*[hH]\s*(\d{1,2})?$/);
+    if (hMatch) {
+      const hours = hMatch[1].padStart(2, '0');
+      const minutes = (hMatch[2] || '00').padStart(2, '0');
+      return `${hours}:${minutes}`;
     }
-    return String(timeStr);
+
+    // Handles standard format: "09:00", "13:40"
+    const colonMatch = str.match(/(\d{1,2}):(\d{2})/);
+    if (colonMatch) {
+      return `${colonMatch[1].padStart(2, '0')}:${colonMatch[2]}`;
+    }
+
+    // Handles plain hour integer: "9", "13"
+    const numMatch = str.match(/^(\d{1,2})$/);
+    if (numMatch) {
+      const hours = parseInt(numMatch[1], 10);
+      if (hours >= 0 && hours <= 23) {
+        return `${String(hours).padStart(2, '0')}:00`;
+      }
+    }
+
+    return str;
   };
 
   const isWorkshopEnded = (dateStr, timeStr) => {
@@ -139,11 +160,23 @@ export default function Dashboard() {
       let hours = 23, minutes = 59, seconds = 59;
 
       if (timeStr) {
-        const timeMatch = String(timeStr).match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
-        if (timeMatch) {
-          hours = parseInt(timeMatch[1], 10);
-          minutes = parseInt(timeMatch[2], 10);
-          seconds = timeMatch[3] ? parseInt(timeMatch[3], 10) : 0;
+        const strTime = String(timeStr).trim();
+        const hMatch = strTime.match(/^(\d{1,2})\s*[hH]\s*(\d{1,2})?$/);
+        const colonMatch = strTime.match(/(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+        const numMatch = strTime.match(/^(\d{1,2})$/);
+
+        if (hMatch) {
+          hours = parseInt(hMatch[1], 10);
+          minutes = hMatch[2] ? parseInt(hMatch[2], 10) : 0;
+          seconds = 0;
+        } else if (colonMatch) {
+          hours = parseInt(colonMatch[1], 10);
+          minutes = parseInt(colonMatch[2], 10);
+          seconds = colonMatch[3] ? parseInt(colonMatch[3], 10) : 0;
+        } else if (numMatch) {
+          hours = parseInt(numMatch[1], 10);
+          minutes = 0;
+          seconds = 0;
         }
       }
 
@@ -359,8 +392,26 @@ export default function Dashboard() {
     const str = String(val).trim();
     if (!str) return null;
 
+    // Handles French format: "9h", "13h40", "09h00", "9H"
+    const hMatch = str.match(/^(\d{1,2})\s*[hH]\s*(\d{1,2})?$/);
+    if (hMatch) {
+      const hours = String(parseInt(hMatch[1], 10)).padStart(2, '0');
+      const minutes = String(parseInt(hMatch[2] || '0', 10)).padStart(2, '0');
+      return `${hours}:${minutes}`;
+    }
+
+    // Handles colon format: "09:00", "13:40"
     const colonMatch = str.match(/(\d{1,2}):(\d{2})/);
     if (colonMatch) return `${colonMatch[1].padStart(2, '0')}:${colonMatch[2]}`;
+
+    // Handles single number string: "9", "13"
+    const numMatch = str.match(/^(\d{1,2})$/);
+    if (numMatch) {
+      const hours = parseInt(numMatch[1], 10);
+      if (hours >= 0 && hours <= 23) {
+        return `${String(hours).padStart(2, '0')}:00`;
+      }
+    }
 
     return str;
   };

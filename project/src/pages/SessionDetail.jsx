@@ -414,19 +414,26 @@ export default function SessionDetail() {
       head: [['#', 'Nom Complet']],
       body: tableRows,
       theme: 'grid',
+      styles: {
+        cellPadding: 1.5,
+      },
       headStyles: {
         fillColor: false,
         textColor: [0, 0, 0],
         fontStyle: 'bold',
-        fontSize: 9,
+        fontSize: 8,
         lineWidth: 0.3,
-        lineColor: [0, 0, 0]
+        lineColor: [0, 0, 0],
+        cellPadding: 2,
       },
       bodyStyles: {
-        fontSize: 8.5,
+        fontSize: 7.5,
         textColor: [0, 0, 0],
         lineWidth: 0.1,
-        lineColor: [0, 0, 0]
+        lineColor: [0, 0, 0],
+      },
+      columnStyles: {
+        0: { cellWidth: 12, halign: 'center' },
       },
       alternateRowStyles: {
         fillColor: false
@@ -457,21 +464,6 @@ export default function SessionDetail() {
     doc.line(14, finalY, 196, finalY);
 
     doc.setLineDashPattern([], 0);
-
-    finalY += 12;
-    doc.setFont('Helvetica', 'bold');
-    doc.setFontSize(11);
-    doc.text('SIGNATURES ET CACHETS', 14, finalY);
-
-    finalY += 6;
-
-    doc.rect(14, finalY, 85, 28);
-    doc.setFontSize(8.5);
-    doc.setFont('Helvetica', 'bold');
-    doc.text('Signature du formateur', 18, finalY + 6);
-
-    doc.rect(111, finalY, 85, 28);
-    doc.text('Signature et cachet du directeur', 115, finalY + 6);
 
     doc.save(`${workshop?.title || 'atelier'}_Registre_Officiel_Presence.pdf`);
   };
