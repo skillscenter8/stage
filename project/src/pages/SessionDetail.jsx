@@ -15,7 +15,6 @@ import {
   Copy, 
   Check, 
   Search, 
-  Download, 
   Loader2,
   QrCode,
   X,
@@ -24,8 +23,7 @@ import {
   AlertTriangle,
   Clock,
   CheckCircle2,
-  Info,
-  Camera
+  Info
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 
@@ -408,15 +406,12 @@ export default function SessionDetail() {
 
     const tableRows = attendees.map((student, index) => [
       index + 1,
-      student.full_name || 'N/A',
-      student.email || 'N/A',
-      student.phone || 'N/A',
-      student.status || 'Participant'
+      student.full_name || 'N/A'
     ]);
 
     autoTable(doc, {
       startY: startY + 4,
-      head: [['#', 'Nom Complet', 'Adresse e-mail', 'Téléphone', 'Statut / Rôle']],
+      head: [['#', 'Nom Complet']],
       body: tableRows,
       theme: 'grid',
       headStyles: {
@@ -484,13 +479,7 @@ export default function SessionDetail() {
   const filteredAttendees = attendees.filter((a) => {
     const term = searchTerm.toLowerCase().trim();
     if (!term) return true;
-    return (
-      a.full_name?.toLowerCase().includes(term) ||
-      a.email?.toLowerCase().includes(term) ||
-      a.phone?.toLowerCase().includes(term) ||
-      a.status?.toLowerCase().includes(term) ||
-      a.reason?.toLowerCase().includes(term)
-    );
+    return a.full_name?.toLowerCase().includes(term);
   });
 
   return (
@@ -648,43 +637,15 @@ export default function SessionDetail() {
                 <table className="w-full text-left rtl:text-right text-xs">
                   <thead className="bg-slate-50/80 text-slate-500 uppercase font-bold border-b border-slate-100 tracking-wider">
                     <tr>
-                      <th className="p-4 pl-6 min-w-[150px]">{t("Full Name")}</th>
-                      <th className="p-4 min-w-[180px]">{t("Email Address")}</th>
-                      <th className="p-4 min-w-[140px]">{t("Phone")}</th>
-                      <th className="p-4 min-w-[120px]">{t("Status / Role")}</th>
-                      <th className="p-4 text-center whitespace-nowrap min-w-[90px]">{t("Photo")}</th>
-                      {isAdmin && <th className="p-4 pr-6 text-center whitespace-nowrap min-w-[80px]">{t("Actions")}</th>}
+                      <th className="p-4 pl-6">{t("Full Name")}</th>
+                      {isAdmin && <th className="p-4 pr-6 text-center whitespace-nowrap w-20">{t("Actions")}</th>}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 font-medium text-slate-700">
                     {filteredAttendees.map((student) => (
                       <tr key={student.id} className="hover:bg-slate-50/80 transition-colors group">
-                        <td className="p-4 pl-6 font-bold text-slate-900 group-hover:text-emerald-700 transition-colors break-words max-w-[180px]">
+                        <td className="p-4 pl-6 font-bold text-slate-900 text-sm sm:text-base group-hover:text-emerald-700 transition-colors break-words">
                           {student.full_name || '—'}
-                        </td>
-                        <td className="p-4 text-slate-600 break-all max-w-[200px]">
-                          {student.email || '—'}
-                        </td>
-                        <td className="p-4 text-slate-600 break-all max-w-[150px]">
-                          {student.phone || '—'}
-                        </td>
-                        <td className="p-4 whitespace-nowrap">
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-slate-100 text-slate-700 border border-slate-200">
-                            {student.status || '—'}
-                          </span>
-                        </td>
-                        <td className="p-4 text-center whitespace-nowrap">
-                          {student.allow_photo !== false ? (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200/60">
-                              <Camera size={12} />
-                              {t("Oui")}
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-50 text-rose-700 border border-rose-200/60">
-                              <Camera size={12} />
-                              {t("Non")}
-                            </span>
-                          )}
                         </td>
                         {isAdmin && (
                           <td className="p-4 pr-6 text-center whitespace-nowrap">

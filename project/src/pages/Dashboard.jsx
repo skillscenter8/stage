@@ -846,7 +846,7 @@ export default function Dashboard() {
                     </div>
 
                     {item.description && (
-                      <p className="text-xs text-slate-500 leading-relaxed line-clamp-2 bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
+                      <p className="text-xs text-slate-500 leading-relaxed whitespace-pre-wrap break-words max-h-36 overflow-y-auto bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
                         {item.description}
                       </p>
                     )}
